@@ -48,13 +48,13 @@ var BRAND = {
 };
 
 var MONTHLY_REVENUE = [
-  { month: "Oct 22", total: 6459 }, { month: "Jan 23", total: 6653 },
-  { month: "Apr 23", total: 4034 }, { month: "Jul 23", total: 4857 },
-  { month: "Oct 23", total: 3939 }, { month: "Jan 24", total: 4205 },
-  { month: "Apr 24", total: 4973 }, { month: "Jul 24", total: 4072 },
-  { month: "Oct 24", total: 3757 }, { month: "Jan 25", total: 3491 },
-  { month: "Apr 25", total: 3447 }, { month: "Jul 25", total: 3282 },
-  { month: "Oct 25", total: 3223 }, { month: "Jan 26", total: 3177 }
+  { month: "Oct 22", streaming: 6459, fanded: 0 }, { month: "Jan 23", streaming: 6653, fanded: 0 },
+  { month: "Apr 23", streaming: 4034, fanded: 0 }, { month: "Jul 23", streaming: 4857, fanded: 0 },
+  { month: "Oct 23", streaming: 3939, fanded: 50 }, { month: "Jan 24", streaming: 4205, fanded: 100 },
+  { month: "Apr 24", streaming: 4973, fanded: 150 }, { month: "Jul 24", streaming: 4072, fanded: 200 },
+  { month: "Oct 24", streaming: 3757, fanded: 250 }, { month: "Jan 25", streaming: 3491, fanded: 300 },
+  { month: "Apr 25", streaming: 3447, fanded: 350 }, { month: "Jul 25", streaming: 3282, fanded: 400 },
+  { month: "Oct 25", streaming: 3223, fanded: 420 }, { month: "Jan 26", streaming: 3177, fanded: 450 }
 ];
 
 var PLATFORM_REVENUE = [
@@ -155,20 +155,37 @@ function HBarChart(props) {
   );
 }
 
-// Simple vertical bar chart (revenue trend)
+// Stacked vertical bar chart (streaming + fanded)
 function VBarChart(props) {
   var max = 0;
-  props.data.forEach(function(d) { if (d.total > max) max = d.total; });
-  return e("div", { style: { display: "flex", alignItems: "flex-end", gap: 4, height: 180, padding: "0 4px" } },
-    props.data.map(function(d, i) {
-      var pct = Math.round((d.total / max) * 100);
-      var opacity = 0.4 + (i / props.data.length) * 0.6;
-      return e("div", { key: i, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 } },
-        e("div", { style: { fontSize: 9, color: BRAND.textDim, opacity: 0.7 } }, "$" + (d.total / 1000).toFixed(1) + "K"),
-        e("div", { style: { width: "100%", height: pct + "%", background: "linear-gradient(to top, " + BRAND.primary + ", " + BRAND.primaryLight + ")", borderRadius: "3px 3px 0 0", opacity: opacity, animation: "growBarV 1.2s ease-out", minHeight: 4 } }),
-        e("div", { style: { fontSize: 8, color: BRAND.textDark, transform: "rotate(-45deg)", transformOrigin: "center", whiteSpace: "nowrap", marginTop: 2 } }, d.month)
-      );
-    })
+  props.data.forEach(function(d) { var t = d.streaming + d.fanded; if (t > max) max = t; });
+  return e("div", null,
+    e("div", { style: { display: "flex", alignItems: "flex-end", gap: 4, height: 180, padding: "0 4px" } },
+      props.data.map(function(d, i) {
+        var total = d.streaming + d.fanded;
+        var streamPct = Math.round((d.streaming / max) * 100);
+        var fandedPct = Math.max(Math.round((d.fanded / max) * 100), d.fanded > 0 ? 3 : 0);
+        return e("div", { key: i, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 } },
+          e("div", { style: { fontSize: 9, color: BRAND.textDim, opacity: 0.7 } }, "$" + (total / 1000).toFixed(1) + "K"),
+          e("div", { style: { width: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "140px" } },
+            d.fanded > 0 ? e("div", { style: { width: "100%", height: fandedPct + "%", background: BRAND.success, borderRadius: "3px 3px 0 0", animation: "growBarV 1.2s ease-out", minHeight: 3 } }) : null,
+            e("div", { style: { width: "100%", height: streamPct + "%", background: "linear-gradient(to top, " + BRAND.primary + ", " + BRAND.primaryLight + ")", borderRadius: d.fanded > 0 ? "0" : "3px 3px 0 0", opacity: 0.7, animation: "growBarV 1.2s ease-out", minHeight: 4 } })
+          ),
+          e("div", { style: { fontSize: 8, color: BRAND.textDark, whiteSpace: "nowrap", marginTop: 4 } }, d.month)
+        );
+      })
+    ),
+    // Legend
+    e("div", { style: { display: "flex", gap: 16, justifyContent: "center", marginTop: 12 } },
+      e("div", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: BRAND.textMuted } },
+        e("div", { style: { width: 10, height: 10, borderRadius: 2, background: BRAND.primaryLight } }),
+        "Streaming (stabilized)"
+      ),
+      e("div", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: BRAND.textMuted } },
+        e("div", { style: { width: 10, height: 10, borderRadius: 2, background: BRAND.success } }),
+        "Fanded (growing)"
+      )
+    )
   );
 }
 
@@ -209,8 +226,9 @@ function DonutChart(props) {
   return e("div", { style: { display: "flex", alignItems: "center", gap: 20 } },
     e("svg", { width: 180, height: 180, viewBox: "0 0 180 180" },
       paths,
-      e("text", { x: cx, y: cy - 6, textAnchor: "middle", fill: "#fff", fontSize: 18, fontWeight: 700 }, "$141K"),
-      e("text", { x: cx, y: cy + 12, textAnchor: "middle", fill: BRAND.textDim, fontSize: 10 }, "total gross")
+      e("text", { x: cx, y: cy - 6, textAnchor: "middle", fill: "#fff", fontSize: 16, fontWeight: 700 }, "$141K"),
+      e("text", { x: cx, y: cy + 10, textAnchor: "middle", fill: BRAND.textDim, fontSize: 9 }, "Ingrooves gross"),
+      e("text", { x: cx, y: cy + 22, textAnchor: "middle", fill: BRAND.textDark, fontSize: 8 }, "(by platform)")
     ),
     e("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
       props.data.map(function(d, i) {
@@ -225,7 +243,7 @@ function DonutChart(props) {
 }
 
 function MAWDDemo() {
-  var activeViewState = useState("dashboard");
+  var activeViewState = useState("chat");
   var activeView = activeViewState[0];
   var setActiveView = activeViewState[1];
 
@@ -254,6 +272,61 @@ function MAWDDemo() {
   var setShowIntro = introState[1];
 
   var chatEndRef = useRef(null);
+
+  var chatInputState = useState("");
+  var chatInput = chatInputState[0];
+  var setChatInput = chatInputState[1];
+
+  // Keyword-matched demo responses for typed input
+  var TYPED_RESPONSES = [
+    { keywords: ["revenue", "money", "earn", "income", "how much"], response: "Here's a quick snapshot: your lifetime streaming revenue is $349K across Soundrop and Virgin/Ingrooves, with 420M+ total streams. Your current monthly run rate is ~$3,400/mo from streaming, plus $400/mo from Fanded memberships. Try the preset questions on the left for deeper analysis!" },
+    { keywords: ["deal", "contract", "ingrooves", "virgin", "advance"], response: "Your Virgin/Ingrooves deal: 82/18 split, $250K advance, 4-year term. You've recouped ~$145K so far with ~$105K remaining. At current rates, you'll recoup by mid-2028. Use the **\"Evaluate my deal\"** preset for the full analysis." },
+    { keywords: ["focus", "grow", "strategy", "what should", "next"], response: "Your three biggest opportunities: 1) Convert more of your 316K YouTube subscribers to Fanded members (currently only 0.15% conversion), 2) Release new music to accelerate catalog compounding and recoupment, 3) Double down on your growing Asian audience. Try **\"Where should I focus?\"** for the full breakdown." },
+    { keywords: ["tax", "accountant", "1099", "deduct"], response: "I can prepare a full tax summary for your accountant. Try the **\"Tax prep summary\"** preset on the left for the complete breakdown of your Ingrooves, Soundrop, and Fanded revenue streams." },
+    { keywords: ["spotify", "stream", "song", "music", "clean"], response: "Your Spotify catalog has 307M+ total streams across 200 songs. Top performers: Clean (46.3M), Should Have Been Us (38.2M), Somehow (27.2M), All I Ask (17.6M), Bless the Broken Road (13.9M). Your catalog continues to compound \u2014 older songs are still growing." },
+    { keywords: ["fanded", "member", "membership", "fan", "club"], response: "Fanded is generating ~$400/mo in direct-to-artist membership revenue \u2014 and here's the key insight: that $400/mo is more actual take-home cash than your entire streaming catalog right now, since 100% of streaming revenue goes to recoupment. Fanded is your highest-margin revenue stream." },
+    { keywords: ["hello", "hi", "hey", "sup", "what's up"], response: "Hey Travis! I'm MAWD \u2014 your AI management team. I have all your streaming data, financial records, distribution contracts, and audience analytics loaded. Ask me anything about your business, or try the preset questions on the left to see what I can do." }
+  ];
+
+  function handleChatSubmit() {
+    if (!chatInput.trim()) return;
+    var userText = chatInput.trim();
+    setChatInput("");
+    setChatMessages([{ role: "user", text: userText }]);
+    setSelectedConvo(null);
+    setIsTyping(true);
+
+    var agentOrder = ["pulse", "dollar", "compass", "scout"];
+    agentOrder.forEach(function(agent, i) {
+      setTimeout(function() { setAgentActive(agent); }, 400 + i * 600);
+    });
+
+    // Find matching response
+    var lowerText = userText.toLowerCase();
+    var matchedResponse = null;
+    for (var i = 0; i < TYPED_RESPONSES.length; i++) {
+      for (var j = 0; j < TYPED_RESPONSES[i].keywords.length; j++) {
+        if (lowerText.indexOf(TYPED_RESPONSES[i].keywords[j]) !== -1) {
+          matchedResponse = TYPED_RESPONSES[i].response;
+          break;
+        }
+      }
+      if (matchedResponse) break;
+    }
+
+    if (!matchedResponse) {
+      matchedResponse = "Great question! In the full version of MAWD, I'd pull real-time data from all your connected accounts to answer that. For this demo, try the preset questions on the left \u2014 they show real analysis using Travis Atreo's actual data.\n\nSome things you can ask about: revenue, streaming stats, deal evaluation, growth strategy, or tax preparation.";
+    }
+
+    setTimeout(function() {
+      setIsTyping(false);
+      setAgentActive(null);
+      setChatMessages([
+        { role: "user", text: userText },
+        { role: "mawd", text: matchedResponse }
+      ]);
+    }, 2800);
+  }
 
   useEffect(function() {
     var step = 0;
@@ -324,14 +397,14 @@ function MAWDDemo() {
       )
     ),
     e("nav", { style: { display: "flex", gap: 4 } },
-      [["dashboard", "Dashboard"], ["agents", "Agent Team"], ["chat", "Talk to MAWD"]].map(function(tab) {
+      [["chat", "Talk to MAWD"], ["dashboard", "Dashboard"], ["agents", "Agent Team"]].map(function(tab) {
         return e("button", {
           key: tab[0], onClick: function() { setActiveView(tab[0]); },
           style: { padding: "8px 20px", borderRadius: 50, border: "none", cursor: "pointer", background: activeView === tab[0] ? "linear-gradient(135deg, " + BRAND.primary + ", " + BRAND.gradient2 + ")" : "transparent", color: activeView === tab[0] ? "#fff" : BRAND.textMuted, fontWeight: activeView === tab[0] ? 700 : 500, fontSize: 13, transition: "all 0.2s" }
         }, tab[1]);
       })
     ),
-    e("div", { style: { padding: "6px 16px", borderRadius: 50, border: "1px solid " + BRAND.borderActive, color: BRAND.primaryLight, fontSize: 11, fontWeight: 600, letterSpacing: 1 } }, "LIVE DATA")
+    e("div", { style: { padding: "6px 16px", borderRadius: 50, border: "1px solid " + BRAND.borderActive, color: BRAND.primaryLight, fontSize: 11, fontWeight: 600, letterSpacing: 1 } }, "REAL DATA")
   );
 
   // === METRIC CARD ===
@@ -362,7 +435,8 @@ function MAWDDemo() {
     e("div", { style: { display: "flex", gap: 24, marginBottom: 32, flexWrap: "wrap" } },
       // Revenue trend
       e("div", { style: { flex: 2, minWidth: 400, background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: 16, padding: 24, border: "1px solid " + BRAND.border } },
-        e("div", { style: { fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 16 } }, "Monthly Revenue Trend"),
+        e("div", { style: { fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 4 } }, "Revenue: Streaming Stable, Fanded Growing"),
+        e("div", { style: { fontSize: 11, color: BRAND.textDim, marginBottom: 12 } }, "Streaming holds steady while direct-to-artist revenue climbs"),
         e(VBarChart, { data: MONTHLY_REVENUE })
       ),
       // Platform donut
@@ -405,6 +479,10 @@ function MAWDDemo() {
       ),
       e("div", { style: { color: BRAND.textMuted, fontSize: 14, maxWidth: 600, margin: "0 auto", lineHeight: 1.6 } },
         "MAWD automatically ingested 1.7M rows of distributor data, 200 songs with 307M+ Spotify streams, 502 YouTube videos with 113M+ views, and 469 email subscribers \u2014 then compressed and unified it all into actionable intelligence. Every artist deserves this."
+      ),
+      e("div", { style: { display: "flex", gap: 16, justifyContent: "center", marginTop: 24, flexWrap: "wrap" } },
+        e("a", { href: "mailto:travis@travisatreo.com?subject=MAWD%20Demo%20Request&body=I%20saw%20the%20MAWD%20demo%20and%20want%20to%20learn%20more.", style: { background: "linear-gradient(135deg, " + BRAND.primary + ", " + BRAND.gradient2 + ")", color: "#fff", padding: "14px 36px", borderRadius: 50, fontWeight: 700, fontSize: 14, letterSpacing: 0.5, textDecoration: "none", boxShadow: "0 4px 24px rgba(74,74,230,0.4)", display: "inline-block" } }, "Request Access"),
+        e("a", { href: "https://fanded.com", target: "_blank", style: { background: "transparent", color: BRAND.primaryLight, padding: "14px 36px", borderRadius: 50, fontWeight: 600, fontSize: 14, textDecoration: "none", border: "1px solid " + BRAND.borderActive, display: "inline-block" } }, "Learn About Fanded")
       )
     )
   );
@@ -536,11 +614,11 @@ function MAWDDemo() {
         ) : null,
         e("div", { ref: chatEndRef })
       ),
-      // Input
-      e("div", { style: { padding: "16px 40px 24px", borderTop: "1px solid " + BRAND.border } },
-        e("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderRadius: 16, background: "rgba(14,14,42,0.8)", border: "1px solid " + BRAND.border } },
-          e("span", { style: { color: BRAND.textDark, fontSize: 14, flex: 1 } }, "Ask MAWD anything about your business..."),
-          e("div", { style: { width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, " + BRAND.primary + ", " + BRAND.gradient2 + ")", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14 } }, "\u2191")
+      // Input - FUNCTIONAL
+      e("form", { style: { padding: "16px 40px 24px", borderTop: "1px solid " + BRAND.border }, onSubmit: function(ev) { ev.preventDefault(); handleChatSubmit(); } },
+        e("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "6px 6px 6px 20px", borderRadius: 16, background: "rgba(14,14,42,0.8)", border: "1px solid " + (chatInput ? BRAND.borderActive : BRAND.border), transition: "border-color 0.2s" } },
+          e("input", { type: "text", value: chatInput, onChange: function(ev) { setChatInput(ev.target.value); }, placeholder: "Ask MAWD anything about your business...", style: { background: "transparent", border: "none", outline: "none", color: BRAND.text, fontSize: 14, flex: 1, fontFamily: "inherit" } }),
+          e("button", { type: "submit", style: { width: 32, height: 32, borderRadius: 8, background: chatInput ? "linear-gradient(135deg, " + BRAND.primary + ", " + BRAND.gradient2 + ")" : "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", color: chatInput ? "#fff" : BRAND.textDark, fontWeight: 700, fontSize: 14, border: "none", cursor: chatInput ? "pointer" : "default", transition: "all 0.2s" } }, "\u2191")
         )
       )
     )
