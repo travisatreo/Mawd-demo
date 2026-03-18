@@ -462,7 +462,7 @@ function MAWDDemo() {
     setShowCards(false);
   }
 
-  // ─── Start streaming a response ───
+  // ─── Start streaming a pre-loaded response (for presets) ───
   function startStreaming(fullText, cards) {
     var words = fullText.split(/(\s+)/); // preserves whitespace
     setStreamData({ words: words, index: 0, cards: cards || null, fullText: fullText });
@@ -475,12 +475,10 @@ function MAWDDemo() {
       if (idx >= words.length) {
         clearInterval(streamTimerRef.current);
         streamTimerRef.current = null;
-        // Commit final message
         setChatMessages(function(prev) {
           return prev.concat([{ role: "mawd", text: fullText, cards: cards }]);
         });
         setStreamData(null);
-        // Show cards after short delay
         if (cards && cards.length) {
           setTimeout(function() { setShowCards(true); }, TIMING.cardRevealDelay);
         }
@@ -491,6 +489,74 @@ function MAWDDemo() {
         return { words: prev.words, index: idx, cards: prev.cards, fullText: prev.fullText };
       });
     }, TIMING.streamWordMs);
+  }
+
+  // ─── Start LIVE streaming from Claude API ───
+  function startLiveStreaming(userText) {
+    setShowCards(false);
+    setIsTyping(false);
+    // Initialize with empty stream
+    setStreamData({ words: [""], index: 1, cards: null, fullText: "" });
+    var fullText = "";
+
+    fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: userText })
+    }).then(function(response) {
+      if (!response.ok) throw new Error("API error: " + response.status);
+      var reader = response.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = "";
+
+      function pump() {
+        return reader.read().then(function(result) {
+          if (result.done) {
+            // Stream complete — commit final message
+            setChatMessages(function(prev) {
+              return prev.concat([{ role: "mawd", text: fullText, cards: null }]);
+            });
+            setStreamData(null);
+            return;
+          }
+          buffer += decoder.decode(result.value, { stream: true });
+          var lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (line.indexOf("data: ") === 0) {
+              var data = line.slice(6).trim();
+              if (data === "[DONE]") continue;
+              try {
+                var parsed = JSON.parse(data);
+                if (parsed.text) {
+                  fullText += parsed.text;
+                  var words = fullText.split(/(\s+)/);
+                  setStreamData({ words: words, index: words.length, cards: null, fullText: fullText });
+                }
+              } catch (e) {}
+            }
+          }
+          return pump();
+        });
+      }
+      return pump();
+    }).catch(function(err) {
+      console.error("MAWD API error, falling back:", err);
+      // Fallback to keyword matching
+      setStreamData(null);
+      var lowerText = userText.toLowerCase();
+      var fallback = null;
+      for (var i = 0; i < TYPED_RESPONSES.length; i++) {
+        for (var j = 0; j < TYPED_RESPONSES[i].keywords.length; j++) {
+          if (lowerText.indexOf(TYPED_RESPONSES[i].keywords[j]) !== -1) { fallback = TYPED_RESPONSES[i].response; break; }
+        }
+        if (fallback) break;
+      }
+      if (!fallback) fallback = "I'm having trouble connecting to my data sources right now. Try one of the preset questions above \u2014 they work offline with Travis's real data.";
+      startStreaming(fallback, null);
+    });
   }
 
   // ─── Run a conversation (preset or typed) ───
@@ -530,18 +596,18 @@ function MAWDDemo() {
     var userText = chatInput.trim();
     setChatInput("");
 
-    var lowerText = userText.toLowerCase();
-    var matchedResponse = null;
-    for (var i = 0; i < TYPED_RESPONSES.length; i++) {
-      for (var j = 0; j < TYPED_RESPONSES[i].keywords.length; j++) {
-        if (lowerText.indexOf(TYPED_RESPONSES[i].keywords[j]) !== -1) { matchedResponse = TYPED_RESPONSES[i].response; break; }
-      }
-      if (matchedResponse) break;
-    }
-    if (!matchedResponse) {
-      matchedResponse = "Great question! In the full version of MAWD, I'd pull real-time data from all your connected accounts to answer that. For this demo, try the preset questions \u2014 they show real analysis using Travis Atreo's actual data.\n\nSome things you can ask about: revenue, streaming stats, deal evaluation, growth strategy, or tax preparation.";
-    }
-    runResponse(userText, matchedResponse, null, null);
+    // Use Claude API for all typed questions
+    interruptStream();
+    setSelectedConvo(null);
+    setChatMessages(function(prev) {
+      return prev.concat([{ role: "user", text: userText }]);
+    });
+    setIsTyping(true);
+
+    // Animate agents, then start live streaming from Claude
+    animateAgents(function() {
+      startLiveStreaming(userText);
+    }, TIMING.agentStartDelay + 4 * TIMING.agentCycleMs);
   }
 
   // ─── Auto-transition splash ───
