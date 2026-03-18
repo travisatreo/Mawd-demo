@@ -839,7 +839,7 @@ function MAWDDemo() {
   // ═══════════════════════════════════════════
   var welcomeMessage = e("div", { className: "fade-in", style: { padding: isMobile ? "0 16px" : "0 40px" } },
     e("div", { style: { display: "flex", justifyContent: "flex-start", marginBottom: 20 } },
-      e("div", { style: { maxWidth: isMobile ? "100%" : 640, padding: isMobile ? "16px 16px" : "14px 20px", borderRadius: "20px 20px 20px 4px", background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", color: BRAND.text, fontSize: isMobile ? 13 : 14, lineHeight: 1.7, border: "1px solid " + BRAND.border, whiteSpace: "pre-line" } },
+      e("div", { style: { maxWidth: isMobile ? "100%" : 640, padding: isMobile ? "16px 18px" : "16px 22px", borderRadius: "20px 20px 20px 4px", background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", color: BRAND.text, fontSize: isMobile ? 16 : 16, lineHeight: 1.5, border: "1px solid " + BRAND.border, whiteSpace: "pre-line" } },
         e(MAWDBubbleHeader),
         e(FormatText, { text: "Good morning, Travis. Here's your daily briefing.\n\n**Revenue:** $3,177 last month from streaming. $450 from Fanded memberships. Fanded is now 12% of your monthly income and growing.\n\n**Advance:** $105K remaining of $250K. On track to recoup by mid-2028.\n\n**Flag:** Your Asian streaming audience grew 8% this quarter \u2014 Vietnam and China are outpacing the US in growth rate. Worth exploring." })
       )
@@ -848,7 +848,7 @@ function MAWDDemo() {
       DEMO_CONVERSATIONS.map(function(convo) {
         return e("button", {
           key: convo.label, onClick: function() { runConversation(convo); },
-          style: { padding: isMobile ? "10px 14px" : "10px 18px", borderRadius: 50, border: "1px solid " + BRAND.borderActive, cursor: "pointer", background: selectedConvo === convo.label ? "rgba(74,74,230,0.15)" : "rgba(255,255,255,0.03)", color: selectedConvo === convo.label ? BRAND.primaryLight : "#D1D5DB", fontSize: isMobile ? 12 : 13, fontWeight: 500, transition: "all 0.15s", whiteSpace: "nowrap" }
+          style: { padding: isMobile ? "11px 16px" : "10px 18px", borderRadius: 50, border: "1px solid " + BRAND.borderActive, cursor: "pointer", background: selectedConvo === convo.label ? "rgba(74,74,230,0.15)" : "rgba(255,255,255,0.03)", color: selectedConvo === convo.label ? BRAND.primaryLight : "#D1D5DB", fontSize: isMobile ? 14 : 14, fontWeight: 500, transition: "all 0.15s", whiteSpace: "nowrap" }
         }, convo.label);
       })
     )
@@ -898,7 +898,7 @@ function MAWDDemo() {
           chatMessages.map(function(msg, i) {
             var isUser = msg.role === "user";
             return e("div", { key: i, style: { display: "flex", justifyContent: isUser ? "flex-end" : "flex-start", marginBottom: 20 } },
-              e("div", { style: { maxWidth: isUser ? (isMobile ? "85%" : 400) : (isMobile ? "100%" : 640), padding: isMobile ? "12px 16px" : "14px 20px", borderRadius: isUser ? "20px 20px 4px 20px" : "20px 20px 20px 4px", background: isUser ? "linear-gradient(135deg, " + BRAND.primary + ", " + BRAND.gradient2 + ")" : "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", color: isUser ? "#fff" : BRAND.text, fontSize: isMobile ? 13 : 14, lineHeight: 1.7, fontWeight: isUser ? 600 : 400, border: !isUser ? "1px solid " + BRAND.border : "none", whiteSpace: "pre-line" } },
+              e("div", { style: { maxWidth: isUser ? (isMobile ? "85%" : 400) : (isMobile ? "100%" : 640), padding: isMobile ? "14px 18px" : "16px 22px", borderRadius: isUser ? "20px 20px 4px 20px" : "20px 20px 20px 4px", background: isUser ? "linear-gradient(135deg, " + BRAND.primary + ", " + BRAND.gradient2 + ")" : "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", color: isUser ? "#fff" : BRAND.text, fontSize: 16, lineHeight: 1.5, fontWeight: isUser ? 600 : 400, border: !isUser ? "1px solid " + BRAND.border : "none", whiteSpace: "pre-line" } },
                 !isUser ? e(MAWDBubbleHeader) : null,
                 e(FormatText, { text: msg.text }),
                 // Show cards on last MAWD message if showCards is true
@@ -911,10 +911,10 @@ function MAWDDemo() {
           }),
           // Currently streaming message
           streamData && streamingText !== null ? e("div", { style: { display: "flex", justifyContent: "flex-start", marginBottom: 20 } },
-            e("div", { style: { maxWidth: isMobile ? "100%" : 640, padding: isMobile ? "12px 16px" : "14px 20px", borderRadius: "20px 20px 20px 4px", background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", color: BRAND.text, fontSize: isMobile ? 13 : 14, lineHeight: 1.7, border: "1px solid " + BRAND.border, whiteSpace: "pre-line" } },
+            e("div", { style: { maxWidth: isMobile ? "100%" : 640, padding: isMobile ? "14px 18px" : "16px 22px", borderRadius: "20px 20px 20px 4px", background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", color: BRAND.text, fontSize: 16, lineHeight: 1.5, border: "1px solid " + BRAND.border, whiteSpace: "pre-line" } },
               e(MAWDBubbleHeader),
               e(FormatText, { text: streamingText }),
-              e("span", { style: { display: "inline-block", width: 2, height: 14, background: BRAND.primaryLight, marginLeft: 2, animation: "blink 0.8s infinite", verticalAlign: "middle" } })
+              e("span", { style: { display: "inline-block", width: 2, height: 16, background: BRAND.primaryLight, marginLeft: 2, animation: "blink 0.8s infinite", verticalAlign: "middle" } })
             )
           ) : null,
           // Typing indicator
@@ -935,7 +935,7 @@ function MAWDDemo() {
       // Input
       e("form", { style: { padding: isMobile ? "12px 16px 16px" : "16px 40px 24px", borderTop: "1px solid " + BRAND.border }, onSubmit: function(ev) { ev.preventDefault(); handleChatSubmit(); } },
         e("div", { style: { display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, padding: "6px 6px 6px 16px", borderRadius: 16, background: "rgba(14,14,42,0.8)", border: "1px solid " + (chatInput ? BRAND.borderActive : BRAND.border), transition: "border-color 0.2s" } },
-          e("input", { type: "text", value: chatInput, onChange: function(ev) { setChatInput(ev.target.value); }, placeholder: isMobile ? "Ask MAWD anything..." : "Ask MAWD anything about your business...", style: { background: "transparent", border: "none", outline: "none", color: BRAND.text, fontSize: 14, flex: 1, fontFamily: "inherit" } }),
+          e("input", { type: "text", value: chatInput, onChange: function(ev) { setChatInput(ev.target.value); }, placeholder: isMobile ? "Ask MAWD anything..." : "Ask MAWD anything about your business...", style: { background: "transparent", border: "none", outline: "none", color: BRAND.text, fontSize: 16, flex: 1, fontFamily: "inherit" } }),
           e("button", { type: "submit", style: { width: 32, height: 32, borderRadius: 8, background: chatInput ? "linear-gradient(135deg, " + BRAND.primary + ", " + BRAND.gradient2 + ")" : "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", color: chatInput ? "#fff" : BRAND.textDark, fontWeight: 700, fontSize: 14, border: "none", cursor: chatInput ? "pointer" : "default", transition: "all 0.2s" } }, "\u2191")
         )
       )
