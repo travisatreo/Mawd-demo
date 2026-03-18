@@ -5,16 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MAWD — My AI Workforce Deployment | Fanded Inc.</title>
 <meta name="description" content="The first agentic management team for talent. Built by Fanded Inc.">
+<meta name="theme-color" content="#4A4AE6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MAWD">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #080818; color: #E5E7EB; overflow-x: hidden; }
   @keyframes pulse { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 1; transform: scale(1.3); } }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes viewEnter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes cardReveal { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
   @keyframes growBar { from { width: 0; } }
   @keyframes growBarV { from { height: 0; } }
-  @keyframes splashFadeOut { from { opacity: 1; } to { opacity: 0; } }
   @keyframes splashLogoGlow { 0% { box-shadow: 0 0 30px rgba(74,74,230,0.2); } 50% { box-shadow: 0 0 80px rgba(74,74,230,0.5), 0 0 160px rgba(123,92,246,0.25); } 100% { box-shadow: 0 0 30px rgba(74,74,230,0.2); } }
+  @keyframes scrollReveal { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes progressFill { from { width: 0; } }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
   .fade-in { animation: fadeIn 0.4s ease-out; }
+  .view-enter { animation: viewEnter 0.35s ease-out; }
+  .scroll-reveal { opacity: 0; }
+  .scroll-reveal.visible { animation: scrollReveal 0.5s ease-out forwards; }
+  .card-reveal { animation: cardReveal 0.4s ease-out forwards; }
   button { font-family: inherit; }
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -30,25 +44,33 @@ var e = React.createElement;
 var useState = React.useState;
 var useEffect = React.useEffect;
 var useRef = React.useRef;
+var useCallback = React.useCallback;
 
+// ═══════════════════════════════════════════
+// BRAND & TIMING CONSTANTS
+// ═══════════════════════════════════════════
 var BRAND = {
-  primary: "#4A4AE6",
-  primaryLight: "#6B6BFF",
-  gradient1: "#60C0FF",
-  gradient2: "#7B5CF6",
-  bg: "#080818",
-  bgCard: "#0E0E2A",
-  bgCardAlt: "#121236",
-  text: "#E5E7EB",
-  textMuted: "#9CA3AF",
-  textDim: "#6B7280",
-  textDark: "#4B5563",
-  border: "rgba(74,74,230,0.12)",
-  borderActive: "rgba(74,74,230,0.3)",
-  success: "#10B981",
-  danger: "#EF4444"
+  primary: "#4A4AE6", primaryLight: "#6B6BFF",
+  gradient1: "#60C0FF", gradient2: "#7B5CF6",
+  bg: "#080818", bgCard: "#0E0E2A", bgCardAlt: "#121236",
+  text: "#E5E7EB", textMuted: "#9CA3AF", textDim: "#6B7280", textDark: "#4B5563",
+  border: "rgba(74,74,230,0.12)", borderActive: "rgba(74,74,230,0.3)",
+  success: "#10B981", danger: "#EF4444"
 };
 
+var TIMING = {
+  streamWordMs: 35,       // ms per word during streaming
+  agentCycleMs: 600,      // ms between agent activations
+  agentStartDelay: 400,   // ms before first agent activates
+  splashDuration: 1800,   // ms splash screen shows
+  splashFade: 600,        // ms splash fade-out
+  swipeThreshold: 50,     // px minimum for swipe detection
+  cardRevealDelay: 300    // ms after stream completes before cards appear
+};
+
+// ═══════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════
 var MONTHLY_REVENUE = [
   { month: "Oct 22", streaming: 6459, fanded: 0 }, { month: "Jan 23", streaming: 6653, fanded: 0 },
   { month: "Apr 23", streaming: 4034, fanded: 0 }, { month: "Jul 23", streaming: 4857, fanded: 0 },
@@ -79,14 +101,10 @@ var TOP_SONGS = [
 ];
 
 var TERRITORY_DATA = [
-  { name: "United States", revenue: 52400 },
-  { name: "Vietnam", revenue: 18200 },
-  { name: "China", revenue: 14800 },
-  { name: "Philippines", revenue: 8900 },
-  { name: "United Kingdom", revenue: 6200 },
-  { name: "Indonesia", revenue: 5100 },
-  { name: "Canada", revenue: 4800 },
-  { name: "Australia", revenue: 3900 }
+  { name: "United States", revenue: 52400 }, { name: "Vietnam", revenue: 18200 },
+  { name: "China", revenue: 14800 }, { name: "Philippines", revenue: 8900 },
+  { name: "United Kingdom", revenue: 6200 }, { name: "Indonesia", revenue: 5100 },
+  { name: "Canada", revenue: 4800 }, { name: "Australia", revenue: 3900 }
 ];
 
 var AGENTS = [
@@ -97,26 +115,53 @@ var AGENTS = [
   { id: "hype", name: "HYPE", role: "Community Manager", icon: "\u{1F525}", color: "#EF4444", desc: "Manages Fanded members, optimizes engagement, grows direct revenue" }
 ];
 
+var VIEW_ORDER = ["chat", "dashboard", "agents"];
+
+// ═══════════════════════════════════════════
+// CONVERSATIONS WITH RICH CARDS
+// ═══════════════════════════════════════════
 var DEMO_CONVERSATIONS = [
   {
     label: "How's my business?",
     messages: [
       { role: "user", text: "How is my business doing?" },
-      { role: "mawd", text: "Here's your business snapshot, Travis.\n\n**Lifetime Streaming Revenue:** $349K across Soundrop + Virgin/Ingrooves\n**Total Streams:** 420M+ across Spotify (307M), YouTube (113M), and all platforms\n**Monthly Run Rate:** ~$3,400/mo from streaming\n**Advance Status:** $105K remaining of your $250K advance \u2014 on track to recoup by mid-2028\n**Fanded Revenue:** $400/mo from memberships \u2014 and growing\n\nHere's what jumps out: your Fanded memberships already generate more take-home cash than your entire streaming catalog. Streaming pays $3,400/mo gross, but 100% goes to recoupment right now. Fanded pays you directly.\n\nYour strongest growth signal is in Asia \u2014 Vietnam and China are your #2 and #3 territories and growing faster than US streams." }
+      { role: "mawd", text: "Here's your business snapshot, Travis.\n\n**Lifetime Streaming Revenue:** $349K across Soundrop + Virgin/Ingrooves\n**Total Streams:** 420M+ across Spotify (307M), YouTube (113M), and all platforms\n**Monthly Run Rate:** ~$3,400/mo from streaming\n**Advance Status:** $105K remaining of your $250K advance \u2014 on track to recoup by mid-2028\n**Fanded Revenue:** $400/mo from memberships \u2014 and growing\n\nHere's what jumps out: your Fanded memberships already generate more take-home cash than your entire streaming catalog. Streaming pays $3,400/mo gross, but 100% goes to recoupment right now. Fanded pays you directly.\n\nYour strongest growth signal is in Asia \u2014 Vietnam and China are your #2 and #3 territories and growing faster than US streams.",
+        cards: [
+          { type: "sparkline", label: "Monthly Revenue Trend", data: [6459,6653,4034,4857,3939,4205,4973,4072,3757,3491,3447,3282,3223,3177], color: BRAND.primaryLight },
+          { type: "progress", label: "Advance Recoupment", current: 145, total: 250, unit: "K", color: BRAND.success },
+          { type: "link", text: "See full dashboard \u2192", action: "dashboard" }
+        ]
+      }
     ]
   },
   {
     label: "Evaluate my deal",
     messages: [
       { role: "user", text: "Is my Ingrooves deal good?" },
-      { role: "mawd", text: "I've analyzed your Virgin/Ingrooves contract against industry benchmarks.\n\n**Your Terms:**\n\u2022 82/18 revenue split (you keep 82%)\n\u2022 $250K advance across two payments\n\u2022 4-year term with auto-extension if unrecouped\n\u2022 75/25 sync split\n\n**Benchmark:** For an independent artist at your stream count, 80-85% is standard. Your rate is fair. The advance was strong \u2014 $250K for a catalog doing ~$50K/year gross means ~5x annual revenue.\n\n**The concern:** You're 42 months in with $105K remaining. At $3,400/mo recoupment, that's ~31 more months \u2014 pushing into 2028. The auto-extension clause means you won't own your release schedule until you recoup.\n\n**My recommendation:** New releases would accelerate recoupment significantly. One viral moment could clear the balance in months, not years." }
+      { role: "mawd", text: "I've analyzed your Virgin/Ingrooves contract against industry benchmarks.\n\n**Your Terms:**\n\u2022 82/18 revenue split (you keep 82%)\n\u2022 $250K advance across two payments\n\u2022 4-year term with auto-extension if unrecouped\n\u2022 75/25 sync split\n\n**Benchmark:** For an independent artist at your stream count, 80-85% is standard. Your rate is fair. The advance was strong \u2014 $250K for a catalog doing ~$50K/year gross means ~5x annual revenue.\n\n**The concern:** You're 42 months in with $105K remaining. At $3,400/mo recoupment, that's ~31 more months \u2014 pushing into 2028. The auto-extension clause means you won't own your release schedule until you recoup.\n\n**My recommendation:** New releases would accelerate recoupment significantly. One viral moment could clear the balance in months, not years.",
+        cards: [
+          { type: "metrics", items: [
+            { label: "Your Split", value: "82%", sub: "vs 80-85% benchmark", color: BRAND.success },
+            { label: "Advance", value: "$250K", sub: "~5x annual revenue", color: BRAND.primaryLight },
+            { label: "Remaining", value: "$105K", sub: "~31 months to recoup", color: BRAND.danger }
+          ]}
+        ]
+      }
     ]
   },
   {
     label: "Where should I focus?",
     messages: [
       { role: "user", text: "What should I focus on to grow my income?" },
-      { role: "mawd", text: "Three moves, ranked by impact:\n\n**1. Double down on Fanded** (highest ROI)\nYou have 316K YouTube subscribers but only 469 email subscribers \u2014 that's a 0.15% conversion rate vs. 2-5% industry average. If you converted just 1% of your YouTube audience, that's 3,160 members. At $5/mo average, that's $15,800/month in direct revenue. No distributor cut. No advance to recoup.\n\n**2. Release new music** (accelerates everything)\nYour catalog compounds \u2014 \"Clean\" is still earning 4+ years later. Each new release lifts the whole catalog. It also accelerates recoupment, getting you to $0 balance faster.\n\n**3. Cultivate the Asian audience** (untapped market)\nVietnam, China, and Philippines represent $41,900 in revenue and growing. You're organically building a fanbase in the fastest-growing music markets in the world. A targeted release or collaboration could 3-5x this." }
+      { role: "mawd", text: "Three moves, ranked by impact:\n\n**1. Double down on Fanded** (highest ROI)\nYou have 316K YouTube subscribers but only 469 email subscribers \u2014 that's a 0.15% conversion rate vs. 2-5% industry average. If you converted just 1% of your YouTube audience, that's 3,160 members. At $5/mo average, that's $15,800/month in direct revenue. No distributor cut. No advance to recoup.\n\n**2. Release new music** (accelerates everything)\nYour catalog compounds \u2014 \"Clean\" is still earning 4+ years later. Each new release lifts the whole catalog. It also accelerates recoupment, getting you to $0 balance faster.\n\n**3. Cultivate the Asian audience** (untapped market)\nVietnam, China, and Philippines represent $41,900 in revenue and growing. You're organically building a fanbase in the fastest-growing music markets in the world. A targeted release or collaboration could 3-5x this.",
+        cards: [
+          { type: "metrics", items: [
+            { label: "YT Subscribers", value: "316K", sub: "0.15% convert to Fanded", color: "#FF0000" },
+            { label: "Potential", value: "$15.8K/mo", sub: "at 1% conversion", color: BRAND.success },
+            { label: "Asia Revenue", value: "$41.9K", sub: "and growing fast", color: BRAND.primaryLight }
+          ]}
+        ]
+      }
     ]
   },
   {
@@ -128,7 +173,51 @@ var DEMO_CONVERSATIONS = [
   }
 ];
 
-// Helper: format text with **bold** markers
+// ═══════════════════════════════════════════
+// HOOKS
+// ═══════════════════════════════════════════
+function useIsMobile() {
+  var state = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
+  useEffect(function() {
+    function h() { state[1](window.innerWidth < 768); }
+    window.addEventListener("resize", h);
+    return function() { window.removeEventListener("resize", h); };
+  }, []);
+  return state[0];
+}
+
+// IntersectionObserver hook for scroll-triggered animations
+function useInView(ref, opts) {
+  var state = useState(false);
+  useEffect(function() {
+    if (!ref.current || !window.IntersectionObserver) { state[1](true); return; }
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) { if (entry.isIntersecting) { state[1](true); observer.unobserve(entry.target); } });
+    }, opts || { threshold: 0.15 });
+    observer.observe(ref.current);
+    return function() { observer.disconnect(); };
+  }, []);
+  return state[0];
+}
+
+// ScrollReveal wrapper component
+function ScrollReveal(props) {
+  var ref = useRef(null);
+  var isVisible = useInView(ref, { threshold: 0.1 });
+  var delay = props.delay || 0;
+  return e("div", {
+    ref: ref,
+    style: Object.assign({
+      opacity: isVisible ? 1 : 0,
+      transform: isVisible ? "translateY(0)" : "translateY(20px)",
+      transition: "opacity 0.5s ease-out " + delay + "ms, transform 0.5s ease-out " + delay + "ms"
+    }, props.style || {})
+  }, props.children);
+}
+
+// ═══════════════════════════════════════════
+// TEXT FORMATTING (handles **bold**)
+// ═══════════════════════════════════════════
 function FormatText(props) {
   var parts = props.text.split(/(\*\*[^*]+\*\*)/g);
   return e("span", null, parts.map(function(part, i) {
@@ -139,20 +228,89 @@ function FormatText(props) {
   }));
 }
 
-// Mobile detection hook
-function useIsMobile() {
-  var state = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
-  var isMobile = state[0];
-  var setIsMobile = state[1];
-  useEffect(function() {
-    function handleResize() { setIsMobile(window.innerWidth < 768); }
-    window.addEventListener("resize", handleResize);
-    return function() { window.removeEventListener("resize", handleResize); };
-  }, []);
-  return isMobile;
+// MAWD bubble header (DRY — used in chat, welcome, typing)
+function MAWDBubbleHeader() {
+  return e("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } },
+    e("div", { style: { width: 20, height: 20, borderRadius: 5, background: "linear-gradient(135deg, " + BRAND.gradient1 + ", " + BRAND.gradient2 + ")", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#fff" } }, "M"),
+    e("span", { style: { color: BRAND.primaryLight, fontSize: 11, fontWeight: 600, letterSpacing: 1 } }, "MAWD")
+  );
 }
 
-// Simple bar chart component (horizontal)
+// ═══════════════════════════════════════════
+// RICH CARD COMPONENTS
+// ═══════════════════════════════════════════
+
+// Mini sparkline SVG
+function Sparkline(props) {
+  var data = props.data;
+  var max = Math.max.apply(null, data);
+  var min = Math.min.apply(null, data);
+  var range = max - min || 1;
+  var w = 140, h = 36;
+  var points = data.map(function(v, i) {
+    return (i / (data.length - 1)) * w + "," + (h - ((v - min) / range) * (h - 4) - 2);
+  }).join(" ");
+  return e("div", { className: "card-reveal", style: { background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "10px 14px", border: "1px solid " + BRAND.border } },
+    e("div", { style: { fontSize: 10, color: BRAND.textDim, marginBottom: 6 } }, props.label),
+    e("svg", { width: w, height: h, viewBox: "0 0 " + w + " " + h },
+      e("polyline", { points: points, fill: "none", stroke: props.color || BRAND.primaryLight, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" })
+    )
+  );
+}
+
+// Progress bar
+function ProgressCard(props) {
+  var pct = Math.round((props.current / props.total) * 100);
+  return e("div", { className: "card-reveal", style: { background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "10px 14px", border: "1px solid " + BRAND.border } },
+    e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 } },
+      e("span", { style: { fontSize: 10, color: BRAND.textDim } }, props.label),
+      e("span", { style: { fontSize: 10, color: props.color, fontWeight: 600 } }, "$" + props.current + (props.unit || "") + " / $" + props.total + (props.unit || ""))
+    ),
+    e("div", { style: { height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" } },
+      e("div", { style: { width: pct + "%", height: "100%", background: props.color, borderRadius: 3, animation: "progressFill 1s ease-out" } })
+    )
+  );
+}
+
+// Metric highlights row
+function MetricsRow(props) {
+  return e("div", { className: "card-reveal", style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+    props.items.map(function(item, i) {
+      return e("div", { key: i, style: { flex: 1, minWidth: 80, background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "10px 12px", border: "1px solid " + BRAND.border } },
+        e("div", { style: { fontSize: 10, color: BRAND.textDim, marginBottom: 2 } }, item.label),
+        e("div", { style: { fontSize: 16, fontWeight: 700, color: item.color || "#fff" } }, item.value),
+        item.sub ? e("div", { style: { fontSize: 9, color: BRAND.textDark, marginTop: 2 } }, item.sub) : null
+      );
+    })
+  );
+}
+
+// Action link card
+function ActionLink(props) {
+  return e("button", {
+    className: "card-reveal",
+    onClick: props.onClick,
+    style: { display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(74,74,230,0.08)", border: "1px solid " + BRAND.borderActive, borderRadius: 50, padding: "8px 16px", color: BRAND.primaryLight, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.15s", marginTop: 4 }
+  }, props.text);
+}
+
+// Render cards array
+function RichCards(props) {
+  if (!props.cards || !props.cards.length) return null;
+  return e("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginTop: 12 } },
+    props.cards.map(function(card, i) {
+      if (card.type === "sparkline") return e(Sparkline, { key: i, label: card.label, data: card.data, color: card.color });
+      if (card.type === "progress") return e(ProgressCard, { key: i, label: card.label, current: card.current, total: card.total, unit: card.unit, color: card.color });
+      if (card.type === "metrics") return e(MetricsRow, { key: i, items: card.items });
+      if (card.type === "link") return e(ActionLink, { key: i, text: card.text, onClick: function() { if (props.onAction) props.onAction(card.action); } });
+      return null;
+    })
+  );
+}
+
+// ═══════════════════════════════════════════
+// CHART COMPONENTS
+// ═══════════════════════════════════════════
 function HBarChart(props) {
   var max = 0;
   props.data.forEach(function(d) { if (d.value > max) max = d.value; });
@@ -161,8 +319,8 @@ function HBarChart(props) {
       var pct = Math.round((d.value / max) * 100);
       return e("div", { key: i, style: { display: "flex", alignItems: "center", gap: 10 } },
         e("div", { style: { width: props.isMobile ? 70 : 90, fontSize: props.isMobile ? 10 : 11, color: BRAND.textMuted, textAlign: "right", flexShrink: 0 } }, d.name),
-        e("div", { style: { flex: 1, height: 20, background: "rgba(255,255,255,0.03)", borderRadius: 4, overflow: "hidden", position: "relative" } },
-          e("div", { style: { width: pct + "%", height: "100%", background: d.color || BRAND.primaryLight, borderRadius: 4, animation: "growBar 1s ease-out", transition: "width 0.3s" } })
+        e("div", { style: { flex: 1, height: 20, background: "rgba(255,255,255,0.03)", borderRadius: 4, overflow: "hidden" } },
+          e("div", { style: { width: pct + "%", height: "100%", background: d.color || BRAND.primaryLight, borderRadius: 4, animation: "growBar 1s ease-out" } })
         ),
         e("div", { style: { width: 50, fontSize: props.isMobile ? 10 : 11, color: BRAND.textMuted, textAlign: "right" } }, "$" + (d.value / 1000).toFixed(1) + "K")
       );
@@ -170,7 +328,6 @@ function HBarChart(props) {
   );
 }
 
-// Stacked vertical bar chart (streaming + fanded)
 function VBarChart(props) {
   var max = 0;
   props.data.forEach(function(d) { var t = d.streaming + d.fanded; if (t > max) max = t; });
@@ -190,55 +347,28 @@ function VBarChart(props) {
         );
       })
     ),
-    // Legend
     e("div", { style: { display: "flex", gap: 16, justifyContent: "center", marginTop: 12 } },
-      e("div", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: BRAND.textMuted } },
-        e("div", { style: { width: 10, height: 10, borderRadius: 2, background: BRAND.primaryLight } }),
-        "Streaming"
-      ),
-      e("div", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: BRAND.textMuted } },
-        e("div", { style: { width: 10, height: 10, borderRadius: 2, background: BRAND.success } }),
-        "Fanded"
-      )
+      e("div", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: BRAND.textMuted } }, e("div", { style: { width: 10, height: 10, borderRadius: 2, background: BRAND.primaryLight } }), "Streaming"),
+      e("div", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: BRAND.textMuted } }, e("div", { style: { width: 10, height: 10, borderRadius: 2, background: BRAND.success } }), "Fanded")
     )
   );
 }
 
-// Donut chart with SVG
 function DonutChart(props) {
   var total = 0;
   props.data.forEach(function(d) { total += d.value; });
-  var cumulative = 0;
-  var radius = 70;
-  var cx = 90;
-  var cy = 90;
-  var innerRadius = 45;
-
-  function polarToCartesian(cx, cy, r, angle) {
-    var rad = (angle - 90) * Math.PI / 180;
-    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  var cumulative = 0, radius = 70, cx = 90, cy = 90, innerRadius = 45;
+  function ptc(cx2, cy2, r, a) { var rad = (a - 90) * Math.PI / 180; return { x: cx2 + r * Math.cos(rad), y: cy2 + r * Math.sin(rad) }; }
+  function arc(cx2, cy2, r1, r2, sa, ea) {
+    var s1 = ptc(cx2,cy2,r2,sa), e1 = ptc(cx2,cy2,r2,ea), s2 = ptc(cx2,cy2,r1,ea), e2 = ptc(cx2,cy2,r1,sa);
+    var lg = ea - sa > 180 ? 1 : 0;
+    return "M "+s1.x+" "+s1.y+" A "+r2+" "+r2+" 0 "+lg+" 1 "+e1.x+" "+e1.y+" L "+s2.x+" "+s2.y+" A "+r1+" "+r1+" 0 "+lg+" 0 "+e2.x+" "+e2.y+" Z";
   }
-
-  function arcPath(cx, cy, r1, r2, startAngle, endAngle) {
-    var s1 = polarToCartesian(cx, cy, r2, startAngle);
-    var e1 = polarToCartesian(cx, cy, r2, endAngle);
-    var s2 = polarToCartesian(cx, cy, r1, endAngle);
-    var e2 = polarToCartesian(cx, cy, r1, startAngle);
-    var large = endAngle - startAngle > 180 ? 1 : 0;
-    return "M " + s1.x + " " + s1.y + " A " + r2 + " " + r2 + " 0 " + large + " 1 " + e1.x + " " + e1.y + " L " + s2.x + " " + s2.y + " A " + r1 + " " + r1 + " 0 " + large + " 0 " + e2.x + " " + e2.y + " Z";
-  }
-
   var paths = [];
   props.data.forEach(function(d, i) {
-    var startAngle = (cumulative / total) * 360;
-    cumulative += d.value;
-    var endAngle = (cumulative / total) * 360;
-    if (endAngle - startAngle > 0.5) {
-      paths.push(e("path", { key: i, d: arcPath(cx, cy, innerRadius, radius, startAngle, endAngle - 1), fill: d.color, opacity: 0.85 }));
-    }
+    var sa = (cumulative / total) * 360; cumulative += d.value; var ea = (cumulative / total) * 360;
+    if (ea - sa > 0.5) paths.push(e("path", { key: i, d: arc(cx, cy, innerRadius, radius, sa, ea - 1), fill: d.color, opacity: 0.85 }));
   });
-
-  // On mobile: stack SVG above legend vertically
   return e("div", { style: { display: "flex", flexDirection: props.isMobile ? "column" : "row", alignItems: "center", gap: props.isMobile ? 16 : 20 } },
     e("svg", { width: 180, height: 180, viewBox: "0 0 180 180", style: { flexShrink: 0 } },
       paths,
@@ -250,65 +380,138 @@ function DonutChart(props) {
       props.data.map(function(d, i) {
         return e("div", { key: i, style: { display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: BRAND.textMuted } },
           e("div", { style: { width: 8, height: 8, borderRadius: 2, background: d.color, flexShrink: 0 } }),
-          d.name,
-          e("span", { style: { color: BRAND.textDark, marginLeft: 4 } }, d.pct + "%")
+          d.name, e("span", { style: { color: BRAND.textDark, marginLeft: 4 } }, d.pct + "%")
         );
       })
     )
   );
 }
 
+// ═══════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════
 function MAWDDemo() {
   var isMobile = useIsMobile();
 
-  var activeViewState = useState("chat");
-  var activeView = activeViewState[0];
-  var setActiveView = activeViewState[1];
+  // Core state
+  var _view = useState("chat"); var activeView = _view[0]; var setActiveView = _view[1];
+  var _msgs = useState([]); var chatMessages = _msgs[0]; var setChatMessages = _msgs[1];
+  var _typing = useState(false); var isTyping = _typing[0]; var setIsTyping = _typing[1];
+  var _convo = useState(null); var selectedConvo = _convo[0]; var setSelectedConvo = _convo[1];
+  var _metrics = useState({ revenue: 0, streams: 0, advance: 0, fanded: 0 }); var metrics = _metrics[0]; var setMetrics = _metrics[1];
+  var _agent = useState(null); var agentActive = _agent[0]; var setAgentActive = _agent[1];
+  var _intro = useState("intro"); var splashPhase = _intro[0]; var setSplashPhase = _intro[1];
+  var _input = useState(""); var chatInput = _input[0]; var setChatInput = _input[1];
+  var _viewKey = useState(0); var viewKey = _viewKey[0]; var setViewKey = _viewKey[1];
+  var _shared = useState(false); var shareConfirm = _shared[0]; var setShareConfirm = _shared[1];
 
-  var chatState = useState([]);
-  var chatMessages = chatState[0];
-  var setChatMessages = chatState[1];
+  // Streaming state
+  var _stream = useState(null); var streamData = _stream[0]; var setStreamData = _stream[1];
+  var _showCards = useState(false); var showCards = _showCards[0]; var setShowCards = _showCards[1];
+  var streamTimerRef = useRef(null);
+  var agentTimersRef = useRef([]);
 
-  var typingState = useState(false);
-  var isTyping = typingState[0];
-  var setIsTyping = typingState[1];
-
-  var convoState = useState(null);
-  var selectedConvo = convoState[0];
-  var setSelectedConvo = convoState[1];
-
-  var metricsState = useState({ revenue: 0, streams: 0, advance: 0, fanded: 0 });
-  var metrics = metricsState[0];
-  var setMetrics = metricsState[1];
-
-  var agentState = useState(null);
-  var agentActive = agentState[0];
-  var setAgentActive = agentState[1];
-
-  // Splash: "intro" = showing splash, "fading" = fade-out animation, false = done
-  var introState = useState("intro");
-  var showIntro = introState[0];
-  var setShowIntro = introState[1];
+  // Swipe state
+  var _touch = useState(null); var touchStart = _touch[0]; var setTouchStart = _touch[1];
 
   var chatEndRef = useRef(null);
 
-  var chatInputState = useState("");
-  var chatInput = chatInputState[0];
-  var setChatInput = chatInputState[1];
+  // View change with transition
+  function changeView(newView) {
+    if (newView === activeView) return;
+    setActiveView(newView);
+    setViewKey(function(k) { return k + 1; });
+  }
 
-  // Auto-transition splash after 1.8s
-  useEffect(function() {
-    if (showIntro === "intro") {
-      var t = setTimeout(function() { setShowIntro("fading"); }, 1800);
-      return function() { clearTimeout(t); };
-    }
-    if (showIntro === "fading") {
-      var t2 = setTimeout(function() { setShowIntro(false); }, 600);
-      return function() { clearTimeout(t2); };
-    }
-  }, [showIntro]);
+  // ─── Agent animation helper (DRY) ───
+  function animateAgents(callback, duration) {
+    var agentOrder = ["pulse", "dollar", "compass", "scout"];
+    var timers = [];
+    agentOrder.forEach(function(agent, i) {
+      timers.push(setTimeout(function() { setAgentActive(agent); }, TIMING.agentStartDelay + i * TIMING.agentCycleMs));
+    });
+    agentTimersRef.current = timers;
+    var mainTimer = setTimeout(function() {
+      setAgentActive(null);
+      if (callback) callback();
+    }, duration || (TIMING.agentStartDelay + agentOrder.length * TIMING.agentCycleMs));
+    timers.push(mainTimer);
+  }
 
-  // Keyword-matched demo responses for typed input
+  // ─── Stop any active stream + agent animation ───
+  function interruptStream() {
+    // Clear streaming
+    if (streamTimerRef.current) { clearInterval(streamTimerRef.current); streamTimerRef.current = null; }
+    // If streaming, commit partial text as full message
+    if (streamData) {
+      var finalText = streamData.words.join("");
+      setChatMessages(function(prev) {
+        return prev.concat([{ role: "mawd", text: finalText, cards: streamData.cards }]);
+      });
+      setStreamData(null);
+      setShowCards(true);
+    }
+    // Clear agent timers
+    agentTimersRef.current.forEach(function(t) { clearTimeout(t); });
+    agentTimersRef.current = [];
+    setIsTyping(false);
+    setAgentActive(null);
+    setShowCards(false);
+  }
+
+  // ─── Start streaming a response ───
+  function startStreaming(fullText, cards) {
+    var words = fullText.split(/(\s+)/); // preserves whitespace
+    setStreamData({ words: words, index: 0, cards: cards || null, fullText: fullText });
+    setShowCards(false);
+    setIsTyping(false);
+
+    var idx = 0;
+    streamTimerRef.current = setInterval(function() {
+      idx++;
+      if (idx >= words.length) {
+        clearInterval(streamTimerRef.current);
+        streamTimerRef.current = null;
+        // Commit final message
+        setChatMessages(function(prev) {
+          return prev.concat([{ role: "mawd", text: fullText, cards: cards }]);
+        });
+        setStreamData(null);
+        // Show cards after short delay
+        if (cards && cards.length) {
+          setTimeout(function() { setShowCards(true); }, TIMING.cardRevealDelay);
+        }
+        return;
+      }
+      setStreamData(function(prev) {
+        if (!prev) return null;
+        return { words: prev.words, index: idx, cards: prev.cards, fullText: prev.fullText };
+      });
+    }, TIMING.streamWordMs);
+  }
+
+  // ─── Run a conversation (preset or typed) ───
+  function runResponse(userText, responseText, cards, convoLabel) {
+    interruptStream();
+    setSelectedConvo(convoLabel || null);
+
+    // Append user message (conversation history)
+    setChatMessages(function(prev) {
+      return prev.concat([{ role: "user", text: userText }]);
+    });
+    setIsTyping(true);
+
+    // Animate agents, then start streaming
+    animateAgents(function() {
+      startStreaming(responseText, cards);
+    }, TIMING.agentStartDelay + 4 * TIMING.agentCycleMs);
+  }
+
+  function runConversation(convo) {
+    runResponse(convo.messages[0].text, convo.messages[1].text, convo.messages[1].cards, convo.label);
+  }
+
+  // ─── Typed responses ───
   var TYPED_RESPONSES = [
     { keywords: ["revenue", "money", "earn", "income", "how much"], response: "Here's a quick snapshot: your lifetime streaming revenue is $349K across Soundrop and Virgin/Ingrooves, with 420M+ total streams. Your current monthly run rate is ~$3,400/mo from streaming, plus $400/mo from Fanded memberships. Try the preset questions for deeper analysis!" },
     { keywords: ["deal", "contract", "ingrooves", "virgin", "advance"], response: "Your Virgin/Ingrooves deal: 82/18 split, $250K advance, 4-year term. You've recouped ~$145K so far with ~$105K remaining. At current rates, you'll recoup by mid-2028. Use the **\"Evaluate my deal\"** preset for the full analysis." },
@@ -323,91 +526,114 @@ function MAWDDemo() {
     if (!chatInput.trim()) return;
     var userText = chatInput.trim();
     setChatInput("");
-    setChatMessages([{ role: "user", text: userText }]);
-    setSelectedConvo(null);
-    setIsTyping(true);
 
-    var agentOrder = ["pulse", "dollar", "compass", "scout"];
-    agentOrder.forEach(function(agent, i) {
-      setTimeout(function() { setAgentActive(agent); }, 400 + i * 600);
-    });
-
-    // Find matching response
     var lowerText = userText.toLowerCase();
     var matchedResponse = null;
     for (var i = 0; i < TYPED_RESPONSES.length; i++) {
       for (var j = 0; j < TYPED_RESPONSES[i].keywords.length; j++) {
-        if (lowerText.indexOf(TYPED_RESPONSES[i].keywords[j]) !== -1) {
-          matchedResponse = TYPED_RESPONSES[i].response;
-          break;
-        }
+        if (lowerText.indexOf(TYPED_RESPONSES[i].keywords[j]) !== -1) { matchedResponse = TYPED_RESPONSES[i].response; break; }
       }
       if (matchedResponse) break;
     }
-
     if (!matchedResponse) {
       matchedResponse = "Great question! In the full version of MAWD, I'd pull real-time data from all your connected accounts to answer that. For this demo, try the preset questions \u2014 they show real analysis using Travis Atreo's actual data.\n\nSome things you can ask about: revenue, streaming stats, deal evaluation, growth strategy, or tax preparation.";
     }
-
-    setTimeout(function() {
-      setIsTyping(false);
-      setAgentActive(null);
-      setChatMessages([
-        { role: "user", text: userText },
-        { role: "mawd", text: matchedResponse }
-      ]);
-    }, 2800);
+    runResponse(userText, matchedResponse, null, null);
   }
 
+  // ─── Auto-transition splash ───
+  useEffect(function() {
+    if (splashPhase === "intro") {
+      var t = setTimeout(function() { setSplashPhase("fading"); }, TIMING.splashDuration);
+      return function() { clearTimeout(t); };
+    }
+    if (splashPhase === "fading") {
+      var t2 = setTimeout(function() { setSplashPhase(false); }, TIMING.splashFade);
+      return function() { clearTimeout(t2); };
+    }
+  }, [splashPhase]);
+
+  // ─── Dashboard metric count-up ───
   useEffect(function() {
     var step = 0;
     var targets = { revenue: 349, streams: 420, advance: 105, fanded: 15 };
     var timer = setInterval(function() {
       step++;
       var ease = 1 - Math.pow(1 - Math.min(step / 60, 1), 3);
-      setMetrics({
-        revenue: Math.round(targets.revenue * ease),
-        streams: Math.round(targets.streams * ease * 10) / 10,
-        advance: Math.round(targets.advance * ease),
-        fanded: Math.round(targets.fanded * ease)
-      });
+      setMetrics({ revenue: Math.round(targets.revenue * ease), streams: Math.round(targets.streams * ease * 10) / 10, advance: Math.round(targets.advance * ease), fanded: Math.round(targets.fanded * ease) });
       if (step >= 60) clearInterval(timer);
     }, 33);
     return function() { clearInterval(timer); };
   }, []);
 
+  // ─── Auto-scroll chat ───
   useEffect(function() {
     if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
+  }, [chatMessages, streamData]);
 
-  function runConversation(convo) {
-    setSelectedConvo(convo.label);
-    setChatMessages([{ role: "user", text: convo.messages[0].text }]);
-    setIsTyping(true);
-    var agentOrder = ["pulse", "dollar", "compass", "scout"];
-    agentOrder.forEach(function(agent, i) {
-      setTimeout(function() { setAgentActive(agent); }, 400 + i * 600);
-    });
-    setTimeout(function() {
-      setIsTyping(false);
-      setAgentActive(null);
-      setChatMessages([
-        { role: "user", text: convo.messages[0].text },
-        { role: "mawd", text: convo.messages[1].text }
-      ]);
-    }, 3200);
+  // ─── Cleanup on unmount ───
+  useEffect(function() {
+    return function() {
+      if (streamTimerRef.current) clearInterval(streamTimerRef.current);
+      agentTimersRef.current.forEach(function(t) { clearTimeout(t); });
+    };
+  }, []);
+
+  // ─── Share handler ───
+  function handleShare() {
+    var shareText = "Check out MAWD \u2014 the first AI management team for talent: https://mawd.fanded.com";
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareText).then(function() {
+        setShareConfirm(true);
+        setTimeout(function() { setShareConfirm(false); }, 2000);
+      });
+    } else {
+      // Fallback
+      var ta = document.createElement("textarea");
+      ta.value = shareText;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setShareConfirm(true);
+      setTimeout(function() { setShareConfirm(false); }, 2000);
+    }
   }
 
-  // === INTRO (auto-transitioning splash) ===
-  if (showIntro) {
+  // ─── Swipe handlers (mobile) ───
+  function handleTouchStart(ev) {
+    if (!isMobile) return;
+    var t = ev.touches[0];
+    // Don't intercept on inputs
+    var tag = ev.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON") return;
+    setTouchStart({ x: t.clientX, y: t.clientY, time: Date.now() });
+  }
+
+  function handleTouchEnd(ev) {
+    if (!isMobile || !touchStart) return;
+    var t = ev.changedTouches[0];
+    var dx = t.clientX - touchStart.x;
+    var dy = t.clientY - touchStart.y;
+    setTouchStart(null);
+
+    // Must be more horizontal than vertical
+    if (Math.abs(dx) < TIMING.swipeThreshold || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+
+    var idx = VIEW_ORDER.indexOf(activeView);
+    if (dx < 0 && idx < VIEW_ORDER.length - 1) {
+      changeView(VIEW_ORDER[idx + 1]);
+    } else if (dx > 0 && idx > 0) {
+      changeView(VIEW_ORDER[idx - 1]);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // RENDER: SPLASH
+  // ═══════════════════════════════════════════
+  if (splashPhase) {
     return e("div", {
-      style: {
-        position: "fixed", inset: 0, zIndex: 100,
-        background: "linear-gradient(135deg, #080818 0%, #0E0E30 30%, #141445 50%, #0E0E30 70%, #080818 100%)",
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        opacity: showIntro === "fading" ? 0 : 1,
-        transition: "opacity 0.6s ease-out"
-      }
+      style: { position: "fixed", inset: 0, zIndex: 100, background: "linear-gradient(135deg, #080818 0%, #0E0E30 30%, #141445 50%, #0E0E30 70%, #080818 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", opacity: splashPhase === "fading" ? 0 : 1, transition: "opacity 0.6s ease-out" }
     },
       e("div", { style: { width: isMobile ? 60 : 80, height: isMobile ? 60 : 80, borderRadius: isMobile ? 16 : 20, marginBottom: isMobile ? 20 : 32, background: "linear-gradient(135deg, " + BRAND.gradient1 + ", " + BRAND.gradient2 + ")", display: "flex", alignItems: "center", justifyContent: "center", animation: "splashLogoGlow 2s ease-in-out infinite" } },
         e("span", { style: { fontSize: isMobile ? 30 : 40, fontWeight: 800, color: "#fff" } }, "M")
@@ -422,15 +648,11 @@ function MAWDDemo() {
     );
   }
 
-  // === HEADER ===
+  // ═══════════════════════════════════════════
+  // RENDER: HEADER
+  // ═══════════════════════════════════════════
   var header = e("header", {
-    style: {
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: isMobile ? "12px 16px" : "16px 32px",
-      borderBottom: "1px solid " + BRAND.border,
-      background: "rgba(8,8,24,0.95)", backdropFilter: "blur(20px)",
-      position: "sticky", top: 0, zIndex: 50
-    }
+    style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "12px 16px" : "16px 32px", borderBottom: "1px solid " + BRAND.border, background: "rgba(8,8,24,0.95)", backdropFilter: "blur(20px)", position: "sticky", top: 0, zIndex: 50 }
   },
     e("div", { style: { display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 } },
       e("div", { style: { width: isMobile ? 28 : 36, height: isMobile ? 28 : 36, borderRadius: isMobile ? 8 : 10, background: "linear-gradient(135deg, " + BRAND.gradient1 + ", " + BRAND.gradient2 + ")", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: isMobile ? 12 : 14, color: "#fff" } }, "M"),
@@ -439,51 +661,43 @@ function MAWDDemo() {
         !isMobile ? e("span", { style: { color: BRAND.textDark, fontSize: 12, marginLeft: 8 } }, "Travis Atreo") : null
       )
     ),
-    // Desktop nav pills
+    // Desktop nav
     !isMobile ? e("nav", { style: { display: "flex", gap: 4 } },
       [["chat", "Talk to MAWD"], ["dashboard", "Dashboard"], ["agents", "Agent Team"]].map(function(tab) {
         return e("button", {
-          key: tab[0], onClick: function() { setActiveView(tab[0]); },
+          key: tab[0], onClick: function() { changeView(tab[0]); },
           style: { padding: "8px 20px", borderRadius: 50, border: "none", cursor: "pointer", background: activeView === tab[0] ? "linear-gradient(135deg, " + BRAND.primary + ", " + BRAND.gradient2 + ")" : "transparent", color: activeView === tab[0] ? "#fff" : BRAND.textMuted, fontWeight: activeView === tab[0] ? 700 : 500, fontSize: 13, transition: "all 0.2s" }
         }, tab[1]);
       })
     ) : null,
-    !isMobile ? e("div", { style: { padding: "6px 16px", borderRadius: 50, border: "1px solid " + BRAND.borderActive, color: BRAND.primaryLight, fontSize: 11, fontWeight: 600, letterSpacing: 1 } }, "REAL DATA") : null
+    // Share button + REAL DATA badge
+    e("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+      e("button", {
+        onClick: handleShare,
+        style: { padding: "6px 14px", borderRadius: 50, border: "1px solid " + BRAND.borderActive, background: shareConfirm ? BRAND.success + "20" : "transparent", color: shareConfirm ? BRAND.success : BRAND.primaryLight, fontSize: 11, fontWeight: 600, letterSpacing: 0.5, cursor: "pointer", transition: "all 0.2s", whiteSpace: "nowrap" }
+      }, shareConfirm ? "\u2713 Copied!" : (isMobile ? "\u{1F517}" : "Share Demo")),
+      !isMobile ? e("div", { style: { padding: "6px 16px", borderRadius: 50, border: "1px solid " + BRAND.borderActive, color: BRAND.primaryLight, fontSize: 11, fontWeight: 600, letterSpacing: 1 } }, "REAL DATA") : null
+    )
   );
 
-  // === BOTTOM TAB BAR (mobile only) ===
+  // ═══════════════════════════════════════════
+  // RENDER: BOTTOM TAB BAR (mobile)
+  // ═══════════════════════════════════════════
   var bottomTabBar = isMobile ? e("nav", {
-    style: {
-      position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50,
-      display: "flex", justifyContent: "space-around", alignItems: "center",
-      padding: "8px 0 calc(8px + env(safe-area-inset-bottom, 0px))",
-      background: "rgba(8,8,24,0.97)", backdropFilter: "blur(20px)",
-      borderTop: "1px solid " + BRAND.border
-    }
+    style: { position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, display: "flex", justifyContent: "space-around", alignItems: "center", padding: "8px 0 calc(8px + env(safe-area-inset-bottom, 0px))", background: "rgba(8,8,24,0.97)", backdropFilter: "blur(20px)", borderTop: "1px solid " + BRAND.border }
   },
-    [
-      { id: "chat", icon: "\u{1F4AC}", label: "Chat" },
-      { id: "dashboard", icon: "\u{1F4CA}", label: "Dashboard" },
-      { id: "agents", icon: "\u{1F916}", label: "Agents" }
-    ].map(function(tab) {
+    [{ id: "chat", icon: "\u{1F4AC}", label: "Chat" }, { id: "dashboard", icon: "\u{1F4CA}", label: "Dashboard" }, { id: "agents", icon: "\u{1F916}", label: "Agents" }].map(function(tab) {
       var isActive = activeView === tab.id;
       return e("button", {
-        key: tab.id, onClick: function() { setActiveView(tab.id); },
-        style: {
-          display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-          background: "none", border: "none", cursor: "pointer",
-          color: isActive ? BRAND.primaryLight : BRAND.textDark,
-          fontSize: 10, fontWeight: isActive ? 700 : 500, padding: "4px 16px",
-          transition: "color 0.2s"
-        }
-      },
-        e("span", { style: { fontSize: 20 } }, tab.icon),
-        e("span", null, tab.label)
-      );
+        key: tab.id, onClick: function() { changeView(tab.id); },
+        style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, background: "none", border: "none", cursor: "pointer", color: isActive ? BRAND.primaryLight : BRAND.textDark, fontSize: 10, fontWeight: isActive ? 700 : 500, padding: "4px 16px", transition: "color 0.2s" }
+      }, e("span", { style: { fontSize: 20 } }, tab.icon), e("span", null, tab.label));
     })
   ) : null;
 
-  // === METRIC CARD ===
+  // ═══════════════════════════════════════════
+  // RENDER: METRIC CARD
+  // ═══════════════════════════════════════════
   function MetricCard(p) {
     return e("div", { style: { background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: isMobile ? 12 : 16, padding: isMobile ? "14px 16px" : "20px 24px", border: "1px solid " + BRAND.border, flex: 1, minWidth: isMobile ? "calc(50% - 8px)" : 180 } },
       e("div", { style: { color: BRAND.textMuted, fontSize: isMobile ? 10 : 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: isMobile ? 4 : 8 } }, p.label),
@@ -492,182 +706,166 @@ function MAWDDemo() {
     );
   }
 
-  // === DASHBOARD ===
-  var dashboard = e("div", { className: "fade-in", style: { padding: isMobile ? "20px 16px 100px" : "32px 32px 64px", maxWidth: 1200, margin: "0 auto" } },
-    e("div", { style: { marginBottom: isMobile ? 20 : 32 } },
-      e("h1", { style: { fontSize: isMobile ? 20 : 28, fontWeight: 700, color: "#fff", margin: 0 } },
-        "Business Intelligence \u2014 ", e("span", { style: { color: BRAND.primaryLight } }, "Automated")
-      ),
-      e("p", { style: { color: BRAND.textDim, fontSize: isMobile ? 12 : 14, margin: "8px 0 0" } }, "Every data source unified. Every insight surfaced. Zero manual work.")
-    ),
-    // Metrics - 2x2 grid on mobile
-    e("div", { style: { display: "flex", gap: isMobile ? 8 : 16, flexWrap: "wrap", marginBottom: isMobile ? 20 : 32 } },
-      e(MetricCard, { label: "Lifetime Revenue", value: "$" + metrics.revenue + "K", sub: isMobile ? "Soundrop + Ingrooves" : "Soundrop + Ingrooves combined", color: BRAND.primaryLight }),
-      e(MetricCard, { label: "Total Streams", value: metrics.streams + "M", sub: isMobile ? "Spotify + YouTube + more" : "307M Spotify + 113M YouTube + more" }),
-      e(MetricCard, { label: "Advance Left", value: "$" + metrics.advance + "K", sub: isMobile ? "of $250K advance" : "of $250K \u2014 recouping ~$3.4K/mo", color: BRAND.danger }),
-      e(MetricCard, { label: "Fanded Revenue", value: "$" + metrics.fanded + "K", sub: "Direct-to-artist", color: BRAND.success })
-    ),
-    // Charts - stacked on mobile
-    e("div", { style: { display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 24, marginBottom: isMobile ? 16 : 32 } },
-      // Revenue trend
-      e("div", { style: { flex: 2, minWidth: isMobile ? 0 : 400, background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: isMobile ? 12 : 16, padding: isMobile ? 16 : 24, border: "1px solid " + BRAND.border } },
-        e("div", { style: { fontSize: isMobile ? 13 : 14, fontWeight: 600, color: "#fff", marginBottom: 4 } }, isMobile ? "Revenue Trend" : "Revenue: Streaming Stable, Fanded Growing"),
-        e("div", { style: { fontSize: 11, color: BRAND.textDim, marginBottom: 12 } }, "Streaming holds steady while direct-to-artist revenue climbs"),
-        e(VBarChart, { data: MONTHLY_REVENUE, isMobile: isMobile })
-      ),
-      // Platform donut
-      e("div", { style: { flex: 1, minWidth: isMobile ? 0 : 300, background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: isMobile ? 12 : 16, padding: isMobile ? 16 : 24, border: "1px solid " + BRAND.border } },
-        e("div", { style: { fontSize: isMobile ? 13 : 14, fontWeight: 600, color: "#fff", marginBottom: 16 } }, "Revenue by Platform"),
-        e(DonutChart, { data: PLATFORM_REVENUE, isMobile: isMobile })
+  // ═══════════════════════════════════════════
+  // RENDER: DASHBOARD
+  // ═══════════════════════════════════════════
+  var dashboard = e("div", { style: { padding: isMobile ? "20px 16px 100px" : "32px 32px 64px", maxWidth: 1200, margin: "0 auto" } },
+    e(ScrollReveal, { delay: 0 },
+      e("div", { style: { marginBottom: isMobile ? 20 : 32 } },
+        e("h1", { style: { fontSize: isMobile ? 20 : 28, fontWeight: 700, color: "#fff", margin: 0 } }, "Business Intelligence \u2014 ", e("span", { style: { color: BRAND.primaryLight } }, "Automated")),
+        e("p", { style: { color: BRAND.textDim, fontSize: isMobile ? 12 : 14, margin: "8px 0 0" } }, "Every data source unified. Every insight surfaced. Zero manual work.")
       )
     ),
-    // Bottom row - stacked on mobile
-    e("div", { style: { display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 24 } },
-      // Top songs
-      e("div", { style: { flex: 1, minWidth: isMobile ? 0 : 380, background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: isMobile ? 12 : 16, padding: isMobile ? 16 : 24, border: "1px solid " + BRAND.border } },
-        e("div", { style: { fontSize: isMobile ? 13 : 14, fontWeight: 600, color: "#fff", marginBottom: 16 } }, "Top Performing Songs"),
-        TOP_SONGS.map(function(song, i) {
-          return e("div", { key: i, style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "8px 0" : "10px 0", borderBottom: i < TOP_SONGS.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" } },
-            e("div", { style: { display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 } },
-              e("span", { style: { color: BRAND.textDark, fontSize: 12, width: 16 } }, i + 1),
-              e("div", null,
-                e("div", { style: { color: "#fff", fontSize: isMobile ? 12 : 13, fontWeight: 500 } }, song.name),
-                e("div", { style: { color: BRAND.textDim, fontSize: isMobile ? 10 : 11 } }, song.streams + " streams")
-              )
-            ),
-            e("div", { style: { textAlign: "right" } },
-              e("div", { style: { color: BRAND.primaryLight, fontSize: isMobile ? 12 : 13, fontWeight: 600 } }, "$" + song.revenue.toLocaleString()),
-              e("div", { style: { color: BRAND.success, fontSize: 11 } }, song.trend)
-            )
-          );
-        })
-      ),
-      // Territory
-      e("div", { style: { flex: 1, minWidth: isMobile ? 0 : 380, background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: isMobile ? 12 : 16, padding: isMobile ? 16 : 24, border: "1px solid " + BRAND.border } },
-        e("div", { style: { fontSize: isMobile ? 13 : 14, fontWeight: 600, color: "#fff", marginBottom: 16 } }, "Revenue by Territory"),
-        e(HBarChart, { isMobile: isMobile, data: TERRITORY_DATA.map(function(d, i) { return { name: d.name, value: d.revenue, color: i === 0 ? BRAND.primaryLight : i < 3 ? "rgba(107,107,255,0.6)" : "rgba(107,107,255,0.3)" }; }) })
+    e(ScrollReveal, { delay: 100 },
+      e("div", { style: { display: "flex", gap: isMobile ? 8 : 16, flexWrap: "wrap", marginBottom: isMobile ? 20 : 32 } },
+        e(MetricCard, { label: "Lifetime Revenue", value: "$" + metrics.revenue + "K", sub: isMobile ? "Soundrop + Ingrooves" : "Soundrop + Ingrooves combined", color: BRAND.primaryLight }),
+        e(MetricCard, { label: "Total Streams", value: metrics.streams + "M", sub: isMobile ? "Spotify + YouTube + more" : "307M Spotify + 113M YouTube + more" }),
+        e(MetricCard, { label: "Advance Left", value: "$" + metrics.advance + "K", sub: isMobile ? "of $250K advance" : "of $250K \u2014 recouping ~$3.4K/mo", color: BRAND.danger }),
+        e(MetricCard, { label: "Fanded Revenue", value: "$" + metrics.fanded + "K", sub: "Direct-to-artist", color: BRAND.success })
       )
     ),
-    // CTA
-    e("div", { style: { marginTop: isMobile ? 24 : 40, padding: isMobile ? "24px 20px" : "32px 40px", background: "linear-gradient(135deg, rgba(74,74,230,0.08) 0%, rgba(123,92,246,0.04) 100%)", borderRadius: isMobile ? 12 : 16, border: "1px solid rgba(74,74,230,0.15)", textAlign: "center" } },
-      e("div", { style: { fontSize: isMobile ? 16 : 20, fontWeight: 700, color: "#fff", marginBottom: 8 } },
-        "This took ", e("span", { style: { color: BRAND.primaryLight } }, "zero hours"), " of manual work."
-      ),
-      e("div", { style: { color: BRAND.textMuted, fontSize: isMobile ? 12 : 14, maxWidth: 600, margin: "0 auto", lineHeight: 1.6 } },
-        "MAWD automatically ingested 1.7M rows of distributor data, 200 songs with 307M+ Spotify streams, 502 YouTube videos with 113M+ views, and 469 email subscribers \u2014 then compressed and unified it all into actionable intelligence."
-      ),
-      e("div", { style: { display: "flex", gap: isMobile ? 8 : 16, justifyContent: "center", marginTop: isMobile ? 16 : 24, flexWrap: "wrap" } },
-        e("a", { href: "mailto:travis@travisatreo.com?subject=MAWD%20Demo%20Request&body=I%20saw%20the%20MAWD%20demo%20and%20want%20to%20learn%20more.", style: { background: "linear-gradient(135deg, " + BRAND.primary + ", " + BRAND.gradient2 + ")", color: "#fff", padding: isMobile ? "12px 28px" : "14px 36px", borderRadius: 50, fontWeight: 700, fontSize: isMobile ? 13 : 14, letterSpacing: 0.5, textDecoration: "none", boxShadow: "0 4px 24px rgba(74,74,230,0.4)", display: "inline-block" } }, "Request Access"),
-        e("a", { href: "https://fanded.com", target: "_blank", style: { background: "transparent", color: BRAND.primaryLight, padding: isMobile ? "12px 28px" : "14px 36px", borderRadius: 50, fontWeight: 600, fontSize: isMobile ? 13 : 14, textDecoration: "none", border: "1px solid " + BRAND.borderActive, display: "inline-block" } }, "Learn About Fanded")
+    e(ScrollReveal, { delay: 200 },
+      e("div", { style: { display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 24, marginBottom: isMobile ? 16 : 32 } },
+        e("div", { style: { flex: 2, minWidth: isMobile ? 0 : 400, background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: isMobile ? 12 : 16, padding: isMobile ? 16 : 24, border: "1px solid " + BRAND.border } },
+          e("div", { style: { fontSize: isMobile ? 13 : 14, fontWeight: 600, color: "#fff", marginBottom: 4 } }, isMobile ? "Revenue Trend" : "Revenue: Streaming Stable, Fanded Growing"),
+          e("div", { style: { fontSize: 11, color: BRAND.textDim, marginBottom: 12 } }, "Streaming holds steady while direct-to-artist revenue climbs"),
+          e(VBarChart, { data: MONTHLY_REVENUE, isMobile: isMobile })
+        ),
+        e("div", { style: { flex: 1, minWidth: isMobile ? 0 : 300, background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: isMobile ? 12 : 16, padding: isMobile ? 16 : 24, border: "1px solid " + BRAND.border } },
+          e("div", { style: { fontSize: isMobile ? 13 : 14, fontWeight: 600, color: "#fff", marginBottom: 16 } }, "Revenue by Platform"),
+          e(DonutChart, { data: PLATFORM_REVENUE, isMobile: isMobile })
+        )
+      )
+    ),
+    e(ScrollReveal, { delay: 300 },
+      e("div", { style: { display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 24 } },
+        e("div", { style: { flex: 1, minWidth: isMobile ? 0 : 380, background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: isMobile ? 12 : 16, padding: isMobile ? 16 : 24, border: "1px solid " + BRAND.border } },
+          e("div", { style: { fontSize: isMobile ? 13 : 14, fontWeight: 600, color: "#fff", marginBottom: 16 } }, "Top Performing Songs"),
+          TOP_SONGS.map(function(song, i) {
+            return e("div", { key: i, style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "8px 0" : "10px 0", borderBottom: i < TOP_SONGS.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" } },
+              e("div", { style: { display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 } },
+                e("span", { style: { color: BRAND.textDark, fontSize: 12, width: 16 } }, i + 1),
+                e("div", null, e("div", { style: { color: "#fff", fontSize: isMobile ? 12 : 13, fontWeight: 500 } }, song.name), e("div", { style: { color: BRAND.textDim, fontSize: isMobile ? 10 : 11 } }, song.streams + " streams"))
+              ),
+              e("div", { style: { textAlign: "right" } }, e("div", { style: { color: BRAND.primaryLight, fontSize: isMobile ? 12 : 13, fontWeight: 600 } }, "$" + song.revenue.toLocaleString()), e("div", { style: { color: BRAND.success, fontSize: 11 } }, song.trend))
+            );
+          })
+        ),
+        e("div", { style: { flex: 1, minWidth: isMobile ? 0 : 380, background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: isMobile ? 12 : 16, padding: isMobile ? 16 : 24, border: "1px solid " + BRAND.border } },
+          e("div", { style: { fontSize: isMobile ? 13 : 14, fontWeight: 600, color: "#fff", marginBottom: 16 } }, "Revenue by Territory"),
+          e(HBarChart, { isMobile: isMobile, data: TERRITORY_DATA.map(function(d, i) { return { name: d.name, value: d.revenue, color: i === 0 ? BRAND.primaryLight : i < 3 ? "rgba(107,107,255,0.6)" : "rgba(107,107,255,0.3)" }; }) })
+        )
+      )
+    ),
+    e(ScrollReveal, { delay: 400 },
+      e("div", { style: { marginTop: isMobile ? 24 : 40, padding: isMobile ? "24px 20px" : "32px 40px", background: "linear-gradient(135deg, rgba(74,74,230,0.08) 0%, rgba(123,92,246,0.04) 100%)", borderRadius: isMobile ? 12 : 16, border: "1px solid rgba(74,74,230,0.15)", textAlign: "center" } },
+        e("div", { style: { fontSize: isMobile ? 16 : 20, fontWeight: 700, color: "#fff", marginBottom: 8 } }, "This took ", e("span", { style: { color: BRAND.primaryLight } }, "zero hours"), " of manual work."),
+        e("div", { style: { color: BRAND.textMuted, fontSize: isMobile ? 12 : 14, maxWidth: 600, margin: "0 auto", lineHeight: 1.6 } }, "MAWD automatically ingested 1.7M rows of distributor data, 200 songs with 307M+ Spotify streams, 502 YouTube videos with 113M+ views, and 469 email subscribers \u2014 then unified it all into actionable intelligence."),
+        e("div", { style: { display: "flex", gap: isMobile ? 8 : 16, justifyContent: "center", marginTop: isMobile ? 16 : 24, flexWrap: "wrap" } },
+          e("a", { href: "mailto:travis@travisatreo.com?subject=MAWD%20Demo%20Request&body=I%20saw%20the%20MAWD%20demo%20and%20want%20to%20learn%20more.", style: { background: "linear-gradient(135deg, " + BRAND.primary + ", " + BRAND.gradient2 + ")", color: "#fff", padding: isMobile ? "12px 28px" : "14px 36px", borderRadius: 50, fontWeight: 700, fontSize: isMobile ? 13 : 14, textDecoration: "none", boxShadow: "0 4px 24px rgba(74,74,230,0.4)", display: "inline-block" } }, "Request Access"),
+          e("a", { href: "https://fanded.com", target: "_blank", style: { background: "transparent", color: BRAND.primaryLight, padding: isMobile ? "12px 28px" : "14px 36px", borderRadius: 50, fontWeight: 600, fontSize: isMobile ? 13 : 14, textDecoration: "none", border: "1px solid " + BRAND.borderActive, display: "inline-block" } }, "Learn About Fanded")
+        )
       )
     )
   );
 
-  // === AGENTS VIEW ===
-  var agentsView = e("div", { className: "fade-in", style: { padding: isMobile ? "20px 16px 100px" : "32px 32px 64px", maxWidth: 1000, margin: "0 auto" } },
+  // ═══════════════════════════════════════════
+  // RENDER: AGENTS
+  // ═══════════════════════════════════════════
+  var agentsView = e("div", { style: { padding: isMobile ? "20px 16px 100px" : "32px 32px 64px", maxWidth: 1000, margin: "0 auto" } },
     e("div", { style: { textAlign: "center", marginBottom: isMobile ? 24 : 48 } },
-      e("h1", { style: { fontSize: isMobile ? 22 : 28, fontWeight: 700, color: "#fff", margin: 0 } },
-        "Your ", e("span", { style: { color: BRAND.primaryLight } }, "Agentic Team")
-      ),
-      e("p", { style: { color: BRAND.textDim, fontSize: isMobile ? 12 : 14, margin: "8px auto 0", maxWidth: 500 } },
-        "Five specialized AI agents that coordinate to run every aspect of your business."
-      )
+      e("h1", { style: { fontSize: isMobile ? 22 : 28, fontWeight: 700, color: "#fff", margin: 0 } }, "Your ", e("span", { style: { color: BRAND.primaryLight } }, "Agentic Team")),
+      e("p", { style: { color: BRAND.textDim, fontSize: isMobile ? 12 : 14, margin: "8px auto 0", maxWidth: 500 } }, "Five specialized AI agents that coordinate to run every aspect of your business.")
     ),
     e("div", { style: { display: "flex", flexDirection: "column", gap: isMobile ? 10 : 16 } },
-      AGENTS.map(function(agent) {
+      AGENTS.map(function(agent, ai) {
         var isActive = agentActive === agent.id;
-        return e("div", {
-          key: agent.id,
-          style: { display: "flex", alignItems: "center", gap: isMobile ? 12 : 24, background: isActive ? "linear-gradient(135deg, " + agent.color + "15 0%, " + agent.color + "05 100%)" : "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: isMobile ? 12 : 16, padding: isMobile ? "14px 16px" : "24px 32px", border: isActive ? "1px solid " + agent.color + "40" : "1px solid " + BRAND.border, transition: "all 0.3s ease", cursor: "pointer" },
-          onMouseEnter: function() { setAgentActive(agent.id); },
-          onMouseLeave: function() { setAgentActive(null); },
-          onClick: isMobile ? function() { setAgentActive(agentActive === agent.id ? null : agent.id); } : undefined
-        },
-          e("div", { style: { width: isMobile ? 40 : 56, height: isMobile ? 40 : 56, borderRadius: isMobile ? 12 : 16, background: agent.color + "15", border: "1px solid " + agent.color + "30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 20 : 28, flexShrink: 0 } }, agent.icon),
-          e("div", { style: { flex: 1, minWidth: 0 } },
-            e("div", { style: { display: "flex", alignItems: "center", gap: isMobile ? 6 : 12, marginBottom: 4 } },
-              e("span", { style: { fontWeight: 700, fontSize: isMobile ? 14 : 18, color: agent.color, letterSpacing: 2 } }, agent.name),
-              e("span", { style: { color: BRAND.textDim, fontSize: isMobile ? 11 : 13 } }, agent.role)
+        return e(ScrollReveal, { key: agent.id, delay: ai * 80 },
+          e("div", {
+            style: { display: "flex", alignItems: "center", gap: isMobile ? 12 : 24, background: isActive ? "linear-gradient(135deg, " + agent.color + "15 0%, " + agent.color + "05 100%)" : "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: isMobile ? 12 : 16, padding: isMobile ? "14px 16px" : "24px 32px", border: isActive ? "1px solid " + agent.color + "40" : "1px solid " + BRAND.border, transition: "all 0.3s ease", cursor: "pointer" },
+            onMouseEnter: function() { setAgentActive(agent.id); },
+            onMouseLeave: function() { setAgentActive(null); },
+            onClick: isMobile ? function() { setAgentActive(agentActive === agent.id ? null : agent.id); } : undefined
+          },
+            e("div", { style: { width: isMobile ? 40 : 56, height: isMobile ? 40 : 56, borderRadius: isMobile ? 12 : 16, background: agent.color + "15", border: "1px solid " + agent.color + "30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 20 : 28, flexShrink: 0 } }, agent.icon),
+            e("div", { style: { flex: 1, minWidth: 0 } },
+              e("div", { style: { display: "flex", alignItems: "center", gap: isMobile ? 6 : 12, marginBottom: 4 } },
+                e("span", { style: { fontWeight: 700, fontSize: isMobile ? 14 : 18, color: agent.color, letterSpacing: 2 } }, agent.name),
+                e("span", { style: { color: BRAND.textDim, fontSize: isMobile ? 11 : 13 } }, agent.role)
+              ),
+              e("div", { style: { color: BRAND.textMuted, fontSize: isMobile ? 11 : 13, lineHeight: 1.5 } }, agent.desc)
             ),
-            e("div", { style: { color: BRAND.textMuted, fontSize: isMobile ? 11 : 13, lineHeight: 1.5 } }, agent.desc)
-          ),
-          !isMobile ? e("div", { style: { padding: "4px 12px", borderRadius: 50, background: isActive ? agent.color + "20" : "rgba(255,255,255,0.03)", color: isActive ? agent.color : BRAND.textDark, fontSize: 11, fontWeight: 600, letterSpacing: 1, flexShrink: 0 } },
-            isActive ? "ACTIVE" : "READY"
-          ) : null
+            !isMobile ? e("div", { style: { padding: "4px 12px", borderRadius: 50, background: isActive ? agent.color + "20" : "rgba(255,255,255,0.03)", color: isActive ? agent.color : BRAND.textDark, fontSize: 11, fontWeight: 600, letterSpacing: 1, flexShrink: 0 } }, isActive ? "ACTIVE" : "READY") : null
+          )
         );
       })
     ),
     // How it works
-    e("div", { style: { marginTop: isMobile ? 24 : 40, padding: isMobile ? 20 : 32, background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: isMobile ? 12 : 16, border: "1px solid " + BRAND.border, textAlign: "center" } },
-      e("div", { style: { fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 20 } }, "How It Works"),
-      e("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: isMobile ? 8 : 16, flexWrap: "wrap", flexDirection: isMobile ? "column" : "row" } },
-        [
-          { label: "Artist asks a question", color: "#fff" },
-          { label: "MAWD routes to agents", color: BRAND.primaryLight },
-          { label: "Agents pull real-time data", color: BRAND.gradient2 },
-          { label: "Unified answer in seconds", color: BRAND.success }
-        ].map(function(step, i) {
-          return e("div", { key: i, style: { display: "flex", alignItems: "center", gap: isMobile ? 8 : 16 } },
-            e("div", { style: { padding: isMobile ? "8px 14px" : "10px 20px", borderRadius: 50, background: step.color + "10", border: "1px solid " + step.color + "25", color: step.color, fontSize: isMobile ? 11 : 12, fontWeight: 600, whiteSpace: "nowrap" } }, step.label),
-            i < 3 ? e("span", { style: { color: BRAND.textDark, fontSize: 18, transform: isMobile ? "rotate(90deg)" : "none", display: "inline-block" } }, "\u2192") : null
-          );
-        })
+    e(ScrollReveal, { delay: 400 },
+      e("div", { style: { marginTop: isMobile ? 24 : 40, padding: isMobile ? 20 : 32, background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: isMobile ? 12 : 16, border: "1px solid " + BRAND.border, textAlign: "center" } },
+        e("div", { style: { fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 20 } }, "How It Works"),
+        e("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: isMobile ? 8 : 16, flexWrap: "wrap", flexDirection: isMobile ? "column" : "row" } },
+          [{ label: "Artist asks a question", color: "#fff" }, { label: "MAWD routes to agents", color: BRAND.primaryLight }, { label: "Agents pull real-time data", color: BRAND.gradient2 }, { label: "Unified answer in seconds", color: BRAND.success }].map(function(step, i) {
+            return e("div", { key: i, style: { display: "flex", alignItems: "center", gap: isMobile ? 8 : 16 } },
+              e("div", { style: { padding: isMobile ? "8px 14px" : "10px 20px", borderRadius: 50, background: step.color + "10", border: "1px solid " + step.color + "25", color: step.color, fontSize: isMobile ? 11 : 12, fontWeight: 600, whiteSpace: "nowrap" } }, step.label),
+              i < 3 ? e("span", { style: { color: BRAND.textDark, fontSize: 18, transform: isMobile ? "rotate(90deg)" : "none", display: "inline-block" } }, "\u2192") : null
+            );
+          })
+        )
       )
     ),
     // LTV:CAC
-    e("div", { style: { marginTop: isMobile ? 16 : 24, padding: isMobile ? "20px 16px" : "32px 40px", background: "linear-gradient(135deg, rgba(74,74,230,0.08) 0%, rgba(123,92,246,0.04) 100%)", borderRadius: isMobile ? 12 : 16, border: "1px solid rgba(74,74,230,0.15)" } },
-      e("div", { style: { fontSize: isMobile ? 14 : 16, fontWeight: 700, color: BRAND.primaryLight, marginBottom: 12 } }, "The LTV:CAC Breakthrough"),
-      e("div", { style: { color: "#D1D5DB", fontSize: isMobile ? 12 : 14, lineHeight: 1.7 } },
-        "Talent's marketing IS their art \u2014 their customer acquisition cost is near zero. But platforms destroyed the economics: artists earn $0.003/stream while spending 80% of their time on business operations they were never trained for. MAWD eliminates that overhead entirely."
-      ),
-      e("div", { style: { display: "flex", gap: isMobile ? 8 : 24, marginTop: isMobile ? 12 : 20, flexWrap: "wrap" } },
-        [
-          { metric: "CAC \u2192 Near Zero", desc: "Art IS the marketing" },
-          { metric: "LTV \u2192 Up", desc: "Direct revenue via Fanded" },
-          { metric: "Overhead \u2192 Zero", desc: "MAWD replaces the team" }
-        ].map(function(item, i) {
-          return e("div", { key: i, style: { flex: 1, minWidth: isMobile ? "calc(50% - 8px)" : 150, padding: isMobile ? "12px 14px" : "16px 20px", background: "rgba(74,74,230,0.06)", borderRadius: 12, border: "1px solid rgba(74,74,230,0.12)" } },
-            e("div", { style: { color: BRAND.primaryLight, fontWeight: 700, fontSize: isMobile ? 13 : 15 } }, item.metric),
-            e("div", { style: { color: BRAND.textMuted, fontSize: isMobile ? 10 : 12, marginTop: 4 } }, item.desc)
-          );
-        })
+    e(ScrollReveal, { delay: 500 },
+      e("div", { style: { marginTop: isMobile ? 16 : 24, padding: isMobile ? "20px 16px" : "32px 40px", background: "linear-gradient(135deg, rgba(74,74,230,0.08) 0%, rgba(123,92,246,0.04) 100%)", borderRadius: isMobile ? 12 : 16, border: "1px solid rgba(74,74,230,0.15)" } },
+        e("div", { style: { fontSize: isMobile ? 14 : 16, fontWeight: 700, color: BRAND.primaryLight, marginBottom: 12 } }, "The LTV:CAC Breakthrough"),
+        e("div", { style: { color: "#D1D5DB", fontSize: isMobile ? 12 : 14, lineHeight: 1.7 } }, "Talent's marketing IS their art \u2014 their customer acquisition cost is near zero. But platforms destroyed the economics: artists earn $0.003/stream while spending 80% of their time on business operations. MAWD eliminates that overhead entirely."),
+        e("div", { style: { display: "flex", gap: isMobile ? 8 : 24, marginTop: isMobile ? 12 : 20, flexWrap: "wrap" } },
+          [{ metric: "CAC \u2192 Near Zero", desc: "Art IS the marketing" }, { metric: "LTV \u2192 Up", desc: "Direct revenue via Fanded" }, { metric: "Overhead \u2192 Zero", desc: "MAWD replaces the team" }].map(function(item, i) {
+            return e("div", { key: i, style: { flex: 1, minWidth: isMobile ? "calc(50% - 8px)" : 150, padding: isMobile ? "12px 14px" : "16px 20px", background: "rgba(74,74,230,0.06)", borderRadius: 12, border: "1px solid rgba(74,74,230,0.12)" } },
+              e("div", { style: { color: BRAND.primaryLight, fontWeight: 700, fontSize: isMobile ? 13 : 15 } }, item.metric),
+              e("div", { style: { color: BRAND.textMuted, fontSize: isMobile ? 10 : 12, marginTop: 4 } }, item.desc)
+            );
+          })
+        )
       )
     )
   );
 
-  // === WELCOME MESSAGE (proactive briefing for empty chat) ===
+  // ═══════════════════════════════════════════
+  // RENDER: WELCOME MESSAGE (proactive briefing)
+  // ═══════════════════════════════════════════
   var welcomeMessage = e("div", { className: "fade-in", style: { padding: isMobile ? "0 16px" : "0 40px" } },
-    // MAWD briefing bubble
     e("div", { style: { display: "flex", justifyContent: "flex-start", marginBottom: 20 } },
-      e("div", { style: { maxWidth: isMobile ? "100%" : 640, padding: isMobile ? "16px 16px" : "14px 20px", borderRadius: "20px 20px 20px 4px", background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", color: BRAND.text, fontSize: isMobile ? 13 : 14, lineHeight: 1.7, fontWeight: 400, border: "1px solid " + BRAND.border, whiteSpace: "pre-line" } },
-        e("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } },
-          e("div", { style: { width: 20, height: 20, borderRadius: 5, background: "linear-gradient(135deg, " + BRAND.gradient1 + ", " + BRAND.gradient2 + ")", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#fff" } }, "M"),
-          e("span", { style: { color: BRAND.primaryLight, fontSize: 11, fontWeight: 600, letterSpacing: 1 } }, "MAWD")
-        ),
+      e("div", { style: { maxWidth: isMobile ? "100%" : 640, padding: isMobile ? "16px 16px" : "14px 20px", borderRadius: "20px 20px 20px 4px", background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", color: BRAND.text, fontSize: isMobile ? 13 : 14, lineHeight: 1.7, border: "1px solid " + BRAND.border, whiteSpace: "pre-line" } },
+        e(MAWDBubbleHeader),
         e(FormatText, { text: "Good morning, Travis. Here's your daily briefing.\n\n**Revenue:** $3,177 last month from streaming. $450 from Fanded memberships. Fanded is now 12% of your monthly income and growing.\n\n**Advance:** $105K remaining of $250K. On track to recoup by mid-2028.\n\n**Flag:** Your Asian streaming audience grew 8% this quarter \u2014 Vietnam and China are outpacing the US in growth rate. Worth exploring." })
       )
     ),
-    // Preset buttons inside the chat
-    e("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20, paddingLeft: isMobile ? 0 : 0 } },
+    e("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 } },
       DEMO_CONVERSATIONS.map(function(convo) {
         return e("button", {
           key: convo.label, onClick: function() { runConversation(convo); },
-          style: {
-            padding: isMobile ? "10px 14px" : "10px 18px", borderRadius: 50,
-            border: "1px solid " + BRAND.borderActive, cursor: "pointer",
-            background: selectedConvo === convo.label ? "rgba(74,74,230,0.15)" : "rgba(255,255,255,0.03)",
-            color: selectedConvo === convo.label ? BRAND.primaryLight : "#D1D5DB",
-            fontSize: isMobile ? 12 : 13, fontWeight: 500, transition: "all 0.15s",
-            whiteSpace: "nowrap"
-          }
+          style: { padding: isMobile ? "10px 14px" : "10px 18px", borderRadius: 50, border: "1px solid " + BRAND.borderActive, cursor: "pointer", background: selectedConvo === convo.label ? "rgba(74,74,230,0.15)" : "rgba(255,255,255,0.03)", color: selectedConvo === convo.label ? BRAND.primaryLight : "#D1D5DB", fontSize: isMobile ? 12 : 13, fontWeight: 500, transition: "all 0.15s", whiteSpace: "nowrap" }
         }, convo.label);
       })
     )
   );
 
-  // === CHAT VIEW ===
-  var chatView = e("div", { className: "fade-in", style: { display: "flex", height: isMobile ? "calc(100vh - 49px - 56px)" : "calc(100vh - 65px)" } },
-    // Sidebar - desktop only
+  // ═══════════════════════════════════════════
+  // RENDER: CHAT VIEW
+  // ═══════════════════════════════════════════
+  // Get currently streaming text
+  var streamingText = streamData ? streamData.words.slice(0, streamData.index).join("") : null;
+  var streamingDone = streamData ? streamData.index >= streamData.words.length : false;
+
+  // Find the last MAWD message to attach cards to (for showCards state)
+  var lastMawdMsg = null;
+  for (var mi = chatMessages.length - 1; mi >= 0; mi--) {
+    if (chatMessages[mi].role === "mawd") { lastMawdMsg = chatMessages[mi]; break; }
+  }
+
+  var chatView = e("div", { style: { display: "flex", height: isMobile ? "calc(100vh - 49px - 56px)" : "calc(100vh - 65px)" } },
+    // Desktop sidebar
     !isMobile ? e("div", { style: { width: 260, borderRight: "1px solid " + BRAND.border, padding: 20, background: "rgba(14,14,42,0.5)", display: "flex", flexDirection: "column", gap: 8 } },
       e("div", { style: { color: BRAND.textDim, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 } }, "Try asking MAWD"),
       DEMO_CONVERSATIONS.map(function(convo) {
@@ -676,15 +874,14 @@ function MAWDDemo() {
           style: { textAlign: "left", padding: "12px 16px", borderRadius: 12, border: "none", cursor: "pointer", background: selectedConvo === convo.label ? "rgba(74,74,230,0.15)" : "rgba(255,255,255,0.02)", color: selectedConvo === convo.label ? BRAND.primaryLight : "#D1D5DB", fontSize: 13, fontWeight: selectedConvo === convo.label ? 600 : 400, transition: "all 0.15s" }
         }, convo.label);
       }),
-      // Agent status
       e("div", { style: { marginTop: "auto", padding: "16px 0" } },
         e("div", { style: { color: BRAND.textDim, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 } }, "Agent Status"),
         AGENTS.map(function(agent) {
-          var isActive = agentActive === agent.id;
-          return e("div", { key: agent.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 11, color: isActive ? agent.color : BRAND.textDark, transition: "color 0.3s" } },
-            e("div", { style: { width: 6, height: 6, borderRadius: 3, background: isActive ? agent.color : "#374151", boxShadow: isActive ? "0 0 8px " + agent.color : "none", transition: "all 0.3s" } }),
+          var isAct = agentActive === agent.id;
+          return e("div", { key: agent.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 11, color: isAct ? agent.color : BRAND.textDark, transition: "color 0.3s" } },
+            e("div", { style: { width: 6, height: 6, borderRadius: 3, background: isAct ? agent.color : "#374151", boxShadow: isAct ? "0 0 8px " + agent.color : "none", transition: "all 0.3s" } }),
             agent.name,
-            e("span", { style: { color: BRAND.textDark, marginLeft: "auto" } }, isActive ? "active" : "idle")
+            e("span", { style: { color: BRAND.textDark, marginLeft: "auto" } }, isAct ? "active" : "idle")
           );
         })
       )
@@ -692,63 +889,81 @@ function MAWDDemo() {
     // Chat area
     e("div", { style: { flex: 1, display: "flex", flexDirection: "column" } },
       e("div", { style: { flex: 1, overflowY: "auto", padding: isMobile ? "16px 0" : "32px 0" } },
-        // Welcome message or empty state
-        chatMessages.length === 0 ? welcomeMessage : null,
-        // Chat messages
+        chatMessages.length === 0 && !streamData && !isTyping ? welcomeMessage : null,
+        // Rendered messages
         e("div", { style: { padding: isMobile ? "0 16px" : "0 40px" } },
           chatMessages.map(function(msg, i) {
             var isUser = msg.role === "user";
             return e("div", { key: i, style: { display: "flex", justifyContent: isUser ? "flex-end" : "flex-start", marginBottom: 20 } },
               e("div", { style: { maxWidth: isUser ? (isMobile ? "85%" : 400) : (isMobile ? "100%" : 640), padding: isMobile ? "12px 16px" : "14px 20px", borderRadius: isUser ? "20px 20px 4px 20px" : "20px 20px 20px 4px", background: isUser ? "linear-gradient(135deg, " + BRAND.primary + ", " + BRAND.gradient2 + ")" : "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", color: isUser ? "#fff" : BRAND.text, fontSize: isMobile ? 13 : 14, lineHeight: 1.7, fontWeight: isUser ? 600 : 400, border: !isUser ? "1px solid " + BRAND.border : "none", whiteSpace: "pre-line" } },
-                !isUser ? e("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } },
-                  e("div", { style: { width: 20, height: 20, borderRadius: 5, background: "linear-gradient(135deg, " + BRAND.gradient1 + ", " + BRAND.gradient2 + ")", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#fff" } }, "M"),
-                  e("span", { style: { color: BRAND.primaryLight, fontSize: 11, fontWeight: 600, letterSpacing: 1 } }, "MAWD")
-                ) : null,
-                e(FormatText, { text: msg.text })
+                !isUser ? e(MAWDBubbleHeader) : null,
+                e(FormatText, { text: msg.text }),
+                // Show cards on last MAWD message if showCards is true
+                (!isUser && msg === lastMawdMsg && showCards && msg.cards) ? e(RichCards, { cards: msg.cards, onAction: function(action) { changeView(action); } }) : null
               )
             );
-          })
-        ),
-        // Typing indicator with agent activity inline
-        isTyping ? e("div", { style: { padding: isMobile ? "0 16px" : "0 40px" } },
-          e("div", { style: { display: "flex", justifyContent: "flex-start", marginBottom: 20 } },
-            e("div", { style: { padding: "14px 24px", borderRadius: "20px 20px 20px 4px", background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", border: "1px solid " + BRAND.border, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" } },
+          }),
+          // Currently streaming message
+          streamData && streamingText !== null ? e("div", { style: { display: "flex", justifyContent: "flex-start", marginBottom: 20 } },
+            e("div", { style: { maxWidth: isMobile ? "100%" : 640, padding: isMobile ? "12px 16px" : "14px 20px", borderRadius: "20px 20px 20px 4px", background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", color: BRAND.text, fontSize: isMobile ? 13 : 14, lineHeight: 1.7, border: "1px solid " + BRAND.border, whiteSpace: "pre-line" } },
+              e(MAWDBubbleHeader),
+              e(FormatText, { text: streamingText }),
+              e("span", { style: { display: "inline-block", width: 2, height: 14, background: BRAND.primaryLight, marginLeft: 2, animation: "blink 0.8s infinite", verticalAlign: "middle" } })
+            )
+          ) : null,
+          // Typing indicator
+          isTyping ? e("div", { style: { display: "flex", justifyContent: "flex-start", marginBottom: 20 } },
+            e("div", { style: { padding: "14px 24px", borderRadius: "20px 20px 20px 4px", background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", border: "1px solid " + BRAND.border, display: "flex", alignItems: "center", gap: 12 } },
               e("div", { style: { width: 20, height: 20, borderRadius: 5, background: "linear-gradient(135deg, " + BRAND.gradient1 + ", " + BRAND.gradient2 + ")", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#fff" } }, "M"),
               e("div", { style: { display: "flex", gap: 4 } },
-                [0, 1, 2].map(function(i) {
-                  return e("div", { key: i, style: { width: 6, height: 6, borderRadius: 3, background: BRAND.primaryLight, animation: "pulse 1.2s ease-in-out " + (i * 0.2) + "s infinite", opacity: 0.4 } });
-                })
+                [0, 1, 2].map(function(i) { return e("div", { key: i, style: { width: 6, height: 6, borderRadius: 3, background: BRAND.primaryLight, animation: "pulse 1.2s ease-in-out " + (i * 0.2) + "s infinite", opacity: 0.4 } }); })
               ),
               e("span", { style: { color: BRAND.textDim, fontSize: 12 } },
-                agentActive ? "Consulting " + AGENTS.find(function(a) { return a.id === agentActive; }).name + "..." : "Consulting agents..."
+                agentActive ? "Consulting " + (AGENTS.find(function(a) { return a.id === agentActive; }) || {}).name + "..." : "Consulting agents..."
               )
             )
-          )
-        ) : null,
+          ) : null
+        ),
         e("div", { ref: chatEndRef })
       ),
       // Input
       e("form", { style: { padding: isMobile ? "12px 16px 16px" : "16px 40px 24px", borderTop: "1px solid " + BRAND.border }, onSubmit: function(ev) { ev.preventDefault(); handleChatSubmit(); } },
         e("div", { style: { display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, padding: "6px 6px 6px 16px", borderRadius: 16, background: "rgba(14,14,42,0.8)", border: "1px solid " + (chatInput ? BRAND.borderActive : BRAND.border), transition: "border-color 0.2s" } },
-          e("input", { type: "text", value: chatInput, onChange: function(ev) { setChatInput(ev.target.value); }, placeholder: isMobile ? "Ask MAWD anything..." : "Ask MAWD anything about your business...", style: { background: "transparent", border: "none", outline: "none", color: BRAND.text, fontSize: isMobile ? 14 : 14, flex: 1, fontFamily: "inherit" } }),
+          e("input", { type: "text", value: chatInput, onChange: function(ev) { setChatInput(ev.target.value); }, placeholder: isMobile ? "Ask MAWD anything..." : "Ask MAWD anything about your business...", style: { background: "transparent", border: "none", outline: "none", color: BRAND.text, fontSize: 14, flex: 1, fontFamily: "inherit" } }),
           e("button", { type: "submit", style: { width: 32, height: 32, borderRadius: 8, background: chatInput ? "linear-gradient(135deg, " + BRAND.primary + ", " + BRAND.gradient2 + ")" : "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", color: chatInput ? "#fff" : BRAND.textDark, fontWeight: 700, fontSize: 14, border: "none", cursor: chatInput ? "pointer" : "default", transition: "all 0.2s" } }, "\u2191")
         )
       )
     )
   );
 
+  // ═══════════════════════════════════════════
+  // RENDER: MAIN LAYOUT
+  // ═══════════════════════════════════════════
   var views = { dashboard: dashboard, agents: agentsView, chat: chatView };
 
-  return e("div", { style: { minHeight: "100vh", background: BRAND.bg, color: BRAND.text, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", position: "relative", overflow: "hidden", paddingBottom: isMobile ? 56 : 0 } },
+  return e("div", {
+    style: { minHeight: "100vh", background: BRAND.bg, color: BRAND.text, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", position: "relative", overflow: "hidden", paddingBottom: isMobile ? 56 : 0 },
+    onTouchStart: handleTouchStart,
+    onTouchEnd: handleTouchEnd
+  },
     e("div", { style: { position: "fixed", top: -300, right: -200, width: 700, height: 700, background: "radial-gradient(circle, rgba(74,74,230,0.07) 0%, transparent 70%)", pointerEvents: "none" } }),
     e("div", { style: { position: "fixed", bottom: -300, left: -200, width: 600, height: 600, background: "radial-gradient(circle, rgba(123,92,246,0.05) 0%, transparent 70%)", pointerEvents: "none" } }),
     header,
-    views[activeView],
+    e("div", { key: "view-" + viewKey, className: "view-enter" }, views[activeView]),
     bottomTabBar
   );
 }
 
 ReactDOM.render(e(MAWDDemo), document.getElementById("root"));
+
+// ═══════════════════════════════════════════
+// PWA SERVICE WORKER REGISTRATION
+// ═══════════════════════════════════════════
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function() {
+    navigator.serviceWorker.register("/sw.js").catch(function() {});
+  });
+}
 </script>
 </body>
 </html>
