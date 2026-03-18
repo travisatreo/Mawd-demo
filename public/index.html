@@ -405,6 +405,9 @@ function MAWDDemo() {
   var _agent = useState(null); var agentActive = _agent[0]; var setAgentActive = _agent[1];
   var _intro = useState("intro"); var splashPhase = _intro[0]; var setSplashPhase = _intro[1];
   var _input = useState(""); var chatInput = _input[0]; var setChatInput = _input[1];
+  var _passInput = useState(""); var passInput = _passInput[0]; var setPassInput = _passInput[1];
+  var _passError = useState(false); var passError = _passError[0]; var setPassError = _passError[1];
+  var _onboardShown = useState(false); var onboardShown = _onboardShown[0]; var setOnboardShown = _onboardShown[1];
   var _viewKey = useState(0); var viewKey = _viewKey[0]; var setViewKey = _viewKey[1];
   var _shared = useState(false); var shareConfirm = _shared[0]; var setShareConfirm = _shared[1];
 
@@ -610,15 +613,24 @@ function MAWDDemo() {
     }, TIMING.agentStartDelay + 4 * TIMING.agentCycleMs);
   }
 
-  // ─── Auto-transition splash ───
-  useEffect(function() {
-    if (splashPhase === "intro") {
-      var t = setTimeout(function() { setSplashPhase("fading"); }, TIMING.splashDuration);
-      return function() { clearTimeout(t); };
+  // ─── Splash password + fade-out ───
+  function handleSplashSubmit() {
+    if (passInput.toLowerCase().trim() === "mawd") {
+      setPassError(false);
+      setSplashPhase("fading");
+      setTimeout(function() { setSplashPhase(false); }, TIMING.splashFade);
+    } else {
+      setPassError(true);
+      setTimeout(function() { setPassError(false); }, 2000);
     }
-    if (splashPhase === "fading") {
-      var t2 = setTimeout(function() { setSplashPhase(false); }, TIMING.splashFade);
-      return function() { clearTimeout(t2); };
+  }
+
+  // ─── Dismiss onboarding hint after 6 seconds ───
+  useEffect(function() {
+    if (!splashPhase && !onboardShown) {
+      setOnboardShown(true);
+      var t = setTimeout(function() { setOnboardShown("done"); }, 6000);
+      return function() { clearTimeout(t); };
     }
   }, [splashPhase]);
 
@@ -698,7 +710,7 @@ function MAWDDemo() {
   }
 
   // ═══════════════════════════════════════════
-  // RENDER: SPLASH
+  // RENDER: SPLASH (password-gated)
   // ═══════════════════════════════════════════
   if (splashPhase) {
     return e("div", {
@@ -710,8 +722,29 @@ function MAWDDemo() {
       e("div", { style: { fontSize: isMobile ? 10 : 13, letterSpacing: 6, color: BRAND.primaryLight, textTransform: "uppercase", marginBottom: isMobile ? 12 : 20, opacity: 0.8 } }, "Powered by Fanded"),
       e("div", { style: { fontSize: isMobile ? 36 : 72, fontWeight: 800, letterSpacing: isMobile ? 6 : 12, color: "#fff", marginBottom: 12 } }, "MAWD"),
       e("div", { style: { fontSize: isMobile ? 14 : 18, color: BRAND.textMuted, marginBottom: 8, textAlign: "center" } }, "My AI Workforce Deployment"),
-      e("div", { style: { fontSize: isMobile ? 12 : 14, color: BRAND.textDim, marginBottom: isMobile ? 24 : 48, textAlign: "center", maxWidth: 440, lineHeight: 1.6, padding: isMobile ? "0 24px" : 0 } },
+      e("div", { style: { fontSize: isMobile ? 12 : 14, color: BRAND.textDim, marginBottom: isMobile ? 24 : 40, textAlign: "center", maxWidth: 440, lineHeight: 1.6, padding: isMobile ? "0 24px" : 0 } },
         "The first agentic management team for talent.", e("br"), "Five AI agents that run your business \u2014 so you can stay an artist."
+      ),
+      // Password input + Enter button
+      e("form", {
+        onSubmit: function(ev) { ev.preventDefault(); handleSplashSubmit(); },
+        style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginBottom: 20 }
+      },
+        e("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+          e("input", {
+            type: "password",
+            value: passInput,
+            onChange: function(ev) { setPassInput(ev.target.value); },
+            placeholder: "Enter access code",
+            autoFocus: true,
+            style: { background: "rgba(255,255,255,0.06)", border: "1px solid " + (passError ? BRAND.danger : BRAND.borderActive), borderRadius: 12, padding: "12px 20px", color: "#fff", fontSize: 16, fontFamily: "inherit", outline: "none", width: isMobile ? 180 : 220, textAlign: "center", letterSpacing: 2, transition: "border-color 0.2s" }
+          }),
+          e("button", {
+            type: "submit",
+            style: { background: "linear-gradient(135deg, " + BRAND.primary + ", " + BRAND.gradient2 + ")", color: "#fff", padding: "12px 28px", borderRadius: 12, fontWeight: 700, fontSize: 15, letterSpacing: 0.5, border: "none", cursor: "pointer", boxShadow: "0 4px 24px rgba(74,74,230,0.4)", whiteSpace: "nowrap" }
+          }, "ENTER DEMO")
+        ),
+        passError ? e("div", { style: { color: BRAND.danger, fontSize: 12, marginTop: 4, animation: "fadeIn 0.2s ease-out" } }, "Incorrect access code") : null
       ),
       e("div", { style: { color: BRAND.textDark, fontSize: 12 } }, "Built by Fanded Inc. \u2014 Live data from artist Travis Atreo")
     );
@@ -1013,6 +1046,24 @@ function MAWDDemo() {
   // ═══════════════════════════════════════════
   var views = { dashboard: dashboard, agents: agentsView, chat: chatView };
 
+  // Onboarding hint — shows for 6 seconds after entering demo, then fades out
+  var onboardHint = (onboardShown === true) ? e("div", {
+    style: {
+      position: "fixed", bottom: isMobile ? 70 : 20, left: "50%", transform: "translateX(-50%)",
+      zIndex: 45, display: "flex", alignItems: "center", gap: 8,
+      background: "rgba(74,74,230,0.15)", backdropFilter: "blur(12px)",
+      border: "1px solid " + BRAND.borderActive, borderRadius: 50,
+      padding: isMobile ? "10px 20px" : "10px 24px",
+      animation: "fadeIn 0.5s ease-out",
+      transition: "opacity 0.5s ease-out"
+    },
+    onClick: function() { setOnboardShown("done"); }
+  },
+    e("span", { style: { fontSize: isMobile ? 13 : 13, color: BRAND.primaryLight, fontWeight: 500 } },
+      isMobile ? "\u{1F449} Swipe left/right or tap the tabs below to explore" : "\u{1F449} Use the tabs above to explore Dashboard, Agents, and Chat"
+    )
+  ) : null;
+
   return e("div", {
     style: { minHeight: "100vh", background: BRAND.bg, color: BRAND.text, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", position: "relative", overflow: "hidden", paddingBottom: isMobile ? 56 : 0 },
     onTouchStart: handleTouchStart,
@@ -1022,6 +1073,7 @@ function MAWDDemo() {
     e("div", { style: { position: "fixed", bottom: -300, left: -200, width: 600, height: 600, background: "radial-gradient(circle, rgba(123,92,246,0.05) 0%, transparent 70%)", pointerEvents: "none" } }),
     header,
     e("div", { key: "view-" + viewKey, className: "view-enter" }, views[activeView]),
+    onboardHint,
     bottomTabBar
   );
 }
