@@ -1016,15 +1016,45 @@ function MAWDDemo() {
               e("span", { style: { display: "inline-block", width: 2, height: 16, background: BRAND.primaryLight, marginLeft: 2, animation: "blink 0.8s infinite", verticalAlign: "middle" } })
             )
           ) : null,
-          // Typing indicator
+          // Typing indicator — agent consultation roster
           isTyping ? e("div", { style: { display: "flex", justifyContent: "flex-start", marginBottom: 20 } },
-            e("div", { style: { padding: "14px 24px", borderRadius: "20px 20px 20px 4px", background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", border: "1px solid " + BRAND.border, display: "flex", alignItems: "center", gap: 12 } },
-              e("div", { style: { width: 20, height: 20, borderRadius: 5, background: "linear-gradient(135deg, " + BRAND.gradient1 + ", " + BRAND.gradient2 + ")", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#fff" } }, "M"),
-              e("div", { style: { display: "flex", gap: 4 } },
-                [0, 1, 2].map(function(i) { return e("div", { key: i, style: { width: 6, height: 6, borderRadius: 3, background: BRAND.primaryLight, animation: "pulse 1.2s ease-in-out " + (i * 0.2) + "s infinite", opacity: 0.4 } }); })
+            e("div", { style: { padding: isMobile ? "14px 16px" : "16px 22px", borderRadius: "20px 20px 20px 4px", background: "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", border: "1px solid " + BRAND.border, maxWidth: isMobile ? "100%" : 420 } },
+              e(MAWDBubbleHeader),
+              // Agent roster — each agent lights up as it's consulted
+              e("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 } },
+                AGENTS.map(function(agent) {
+                  var isActive = agentActive === agent.id;
+                  // Check if this agent was already consulted (comes before current in the order)
+                  var order = ["pulse", "dollar", "compass", "scout"];
+                  var activeIdx = order.indexOf(agentActive);
+                  var thisIdx = order.indexOf(agent.id);
+                  var wasConsulted = activeIdx >= 0 && thisIdx >= 0 && thisIdx < activeIdx;
+                  return e("div", {
+                    key: agent.id,
+                    style: {
+                      display: "flex", alignItems: "center", gap: 5,
+                      padding: "4px 10px", borderRadius: 50,
+                      background: isActive ? agent.color + "20" : wasConsulted ? agent.color + "10" : "rgba(255,255,255,0.03)",
+                      border: "1px solid " + (isActive ? agent.color + "50" : wasConsulted ? agent.color + "20" : "rgba(255,255,255,0.05)"),
+                      transition: "all 0.3s ease",
+                      transform: isActive ? "scale(1.05)" : "scale(1)"
+                    }
+                  },
+                    e("span", { style: { fontSize: 12 } }, agent.icon),
+                    e("span", { style: { fontSize: 10, fontWeight: isActive ? 700 : 500, color: isActive ? agent.color : wasConsulted ? agent.color + "AA" : BRAND.textDark, letterSpacing: 0.5, transition: "color 0.3s" } }, agent.name),
+                    isActive ? e("div", { style: { width: 4, height: 4, borderRadius: 2, background: agent.color, animation: "pulse 1s infinite", marginLeft: 2 } }) : null,
+                    wasConsulted ? e("span", { style: { fontSize: 9, color: agent.color, opacity: 0.7 } }, "\u2713") : null
+                  );
+                })
               ),
-              e("span", { style: { color: BRAND.textDim, fontSize: 12 } },
-                agentActive ? "Consulting " + (AGENTS.find(function(a) { return a.id === agentActive; }) || {}).name + "..." : "Consulting agents..."
+              // Status text
+              e("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+                e("div", { style: { display: "flex", gap: 3 } },
+                  [0, 1, 2].map(function(i) { return e("div", { key: i, style: { width: 4, height: 4, borderRadius: 2, background: BRAND.primaryLight, animation: "pulse 1.2s ease-in-out " + (i * 0.15) + "s infinite", opacity: 0.4 } }); })
+                ),
+                e("span", { style: { fontSize: 11, color: BRAND.textDim } },
+                  agentActive ? (AGENTS.find(function(a) { return a.id === agentActive; }) || {}).role + " analyzing..." : "Coordinating agents..."
+                )
               )
             )
           ) : null
