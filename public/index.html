@@ -1049,18 +1049,19 @@ function MAWDDemo() {
   // Onboarding hint — shows for 6 seconds after entering demo, then fades out
   var onboardHint = (onboardShown === true) ? e("div", {
     style: {
-      position: "fixed", bottom: isMobile ? 70 : 20, left: "50%", transform: "translateX(-50%)",
-      zIndex: 45, display: "flex", alignItems: "center", gap: 8,
-      background: "rgba(74,74,230,0.15)", backdropFilter: "blur(12px)",
-      border: "1px solid " + BRAND.borderActive, borderRadius: 50,
-      padding: isMobile ? "10px 20px" : "10px 24px",
-      animation: "fadeIn 0.5s ease-out",
-      transition: "opacity 0.5s ease-out"
+      position: "fixed", bottom: isMobile ? 68 : 20, left: "50%", transform: "translateX(-50%)",
+      zIndex: 45,
+      background: "rgba(8,8,24,0.85)", backdropFilter: "blur(16px)",
+      borderRadius: 50,
+      padding: isMobile ? "8px 18px" : "8px 20px",
+      animation: "fadeIn 0.6s ease-out",
+      transition: "opacity 0.5s ease-out",
+      boxShadow: "0 2px 16px rgba(0,0,0,0.3)"
     },
     onClick: function() { setOnboardShown("done"); }
   },
-    e("span", { style: { fontSize: isMobile ? 13 : 13, color: BRAND.primaryLight, fontWeight: 500 } },
-      isMobile ? "\u{1F449} Swipe left/right or tap the tabs below to explore" : "\u{1F449} Use the tabs above to explore Dashboard, Agents, and Chat"
+    e("span", { style: { fontSize: 11, color: BRAND.textMuted, fontWeight: 400, letterSpacing: 0.3 } },
+      isMobile ? "swipe or tap below to explore \u2192" : "use tabs above to explore \u2192"
     )
   ) : null;
 
