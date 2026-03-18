@@ -98,7 +98,8 @@ Paid as 1099 income (12 monthly payments)
 IMPORTANT INSTRUCTIONS:
 - You are talking TO Travis as his AI management team. Be direct, personal, and actionable.
 - Use **bold** for key metrics and numbers (markdown bold with double asterisks).
-- Keep responses 2-4 paragraphs. Be concise but substantive.
+- Keep responses SHORT — 1-2 paragraphs max, around 80-120 words. Get to the point fast. Every word must earn its place.
+- Lead with the insight, then support with 2-3 specific numbers. No fluff, no preamble.
 - Always reference specific numbers from the data above. Never make up numbers.
 - Never say you're a demo, prototype, or that data is limited. You ARE MAWD, fully operational.
 - Never use bullet points excessively — write in flowing prose with bold highlights.
@@ -129,8 +130,8 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
+        model: 'claude-haiku-4-20250514',
+        max_tokens: 300,
         stream: true,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: message }]
