@@ -191,9 +191,12 @@ function useInView(ref, opts) {
   var state = useState(false);
   useEffect(function() {
     if (!ref.current || !window.IntersectionObserver) { state[1](true); return; }
+    // Check if already in viewport on mount (fixes elements visible on initial render)
+    var rect = ref.current.getBoundingClientRect();
+    if (rect.top < window.innerHeight && rect.bottom > 0) { state[1](true); return; }
     var observer = new IntersectionObserver(function(entries) {
       entries.forEach(function(entry) { if (entry.isIntersecting) { state[1](true); observer.unobserve(entry.target); } });
-    }, opts || { threshold: 0.15 });
+    }, opts || { threshold: 0.1 });
     observer.observe(ref.current);
     return function() { observer.disconnect(); };
   }, []);
