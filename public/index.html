@@ -902,7 +902,10 @@ function MAWDDemo() {
                 !isUser ? e(MAWDBubbleHeader) : null,
                 e(FormatText, { text: msg.text }),
                 // Show cards on last MAWD message if showCards is true
-                (!isUser && msg === lastMawdMsg && showCards && msg.cards) ? e(RichCards, { cards: msg.cards, onAction: function(action) { changeView(action); } }) : null
+                // Show cards on all committed MAWD messages that have them
+                // For the latest message, gate with showCards (animation delay after streaming)
+                // For older messages, always show
+                (!isUser && msg.cards) ? (msg === lastMawdMsg ? (showCards ? e(RichCards, { cards: msg.cards, onAction: function(action) { changeView(action); } }) : null) : e(RichCards, { cards: msg.cards, onAction: function(action) { changeView(action); } })) : null
               )
             );
           }),
