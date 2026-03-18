@@ -885,9 +885,9 @@ function MAWDDemo() {
         return e(ScrollReveal, { key: agent.id, delay: ai * 80 },
           e("div", {
             style: { display: "flex", alignItems: "center", gap: isMobile ? 12 : 24, background: isActive ? "linear-gradient(135deg, " + agent.color + "15 0%, " + agent.color + "05 100%)" : "linear-gradient(135deg, " + BRAND.bgCard + " 0%, " + BRAND.bgCardAlt + " 100%)", borderRadius: isMobile ? 12 : 16, padding: isMobile ? "14px 16px" : "24px 32px", border: isActive ? "1px solid " + agent.color + "40" : "1px solid " + BRAND.border, transition: "all 0.3s ease", cursor: "pointer" },
-            onMouseEnter: function() { setAgentActive(agent.id); },
-            onMouseLeave: function() { setAgentActive(null); },
-            onClick: isMobile ? function() { setAgentActive(agentActive === agent.id ? null : agent.id); } : undefined
+            onMouseEnter: !isMobile ? function() { setAgentActive(agent.id); } : undefined,
+            onMouseLeave: !isMobile ? function() { setAgentActive(null); } : undefined,
+            onClick: function() { setAgentActive(agentActive === agent.id ? null : agent.id); }
           },
             e("div", { style: { width: isMobile ? 40 : 56, height: isMobile ? 40 : 56, borderRadius: isMobile ? 12 : 16, background: agent.color + "15", border: "1px solid " + agent.color + "30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 20 : 28, flexShrink: 0 } }, agent.icon),
             e("div", { style: { flex: 1, minWidth: 0 } },
