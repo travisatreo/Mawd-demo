@@ -1,7 +1,7 @@
 # SESSION CONTEXT — Fanded M1
 
-Last updated: 2026-03-18
-Session: Full-day build session covering MAWD demo + Fanded landing page
+Last updated: 2026-03-18 (end of session)
+Session: Full-day build session covering MAWD demo + Fanded landing page redesign
 
 ---
 
@@ -12,13 +12,13 @@ Session: Full-day build session covering MAWD demo + Fanded landing page
 **Local path:** `/Users/travis/Documents/Fanded M1/mawd-demo-vercel/`
 **Stack:** Single-file React app (no build step, CDN React, React.createElement)
 
-**Features shipped:**
+**Features shipped (17 total):**
 - Mobile-responsive redesign with bottom tab bar (768px breakpoint)
 - Auto-transitioning splash screen with password gate (password: "mawd")
 - ChatGPT-style word streaming for all responses
 - Conversation history (messages accumulate, not replaced)
 - Rich response cards (sparklines, progress bars, metric highlights)
-- Real Claude API responses for typed questions (Vercel edge function at `/api/chat`)
+- Real Claude API responses for typed questions (Vercel serverless at `/api/chat`)
 - Prominent agent consultation roster during "thinking" phase
 - Swipe navigation between views on mobile
 - Scroll-triggered animations on dashboard
@@ -27,96 +27,133 @@ Session: Full-day build session covering MAWD demo + Fanded landing page
 - Reusable demo template system (artist-config.js)
 - Onboarding hints for mobile navigation
 - Claude iOS app-matched text sizing (16px)
+- Agent roles updated (Agent, Manager, Analyst, Fan Moderator)
+- Shorter API responses for cost savings (haiku model)
+- QA'd and bug-fixed (2 issues resolved)
+
+**Reusable Demo System:**
+- `public/artist-config.js` — ALL artist data lives here. Swap this file = new demo.
+- `templates/artist-config-template.js` — blank template with every field commented
+- `SETUP-GUIDE.md` — step-by-step guide to spin up a new demo in 10 minutes
+- Not yet tested end-to-end with a second artist
 
 **Key files:**
-- `public/index.html` — the entire app (~950 lines)
-- `public/artist-config.js` — all artist data (swap this file for a new demo)
-- `api/chat.js` — Vercel serverless function proxying to Claude API
-- `CLAUDE.md` — project guide
-- `CONTEXT.md` — reusable demo template documentation
+| File | Purpose |
+|------|---------|
+| `public/index.html` | The entire app (~1050 lines) |
+| `public/artist-config.js` | All artist data (the ONLY file to edit per artist) |
+| `api/chat.js` | Claude API proxy (update system prompt per artist) |
+| `templates/artist-config-template.js` | Blank config template |
+| `SETUP-GUIDE.md` | How to create a new demo |
+| `CLAUDE.md` | Project conventions |
 
 **Environment variable:** `ANTHROPIC_API_KEY` set in Vercel project settings
-
-**Deploy pipeline:** Push to `main` → Vercel auto-deploys in ~30s
+**Deploy:** Push to `main` → Vercel → mawd.fanded.com (~30s)
 **Rollback:** `git revert HEAD && git push`
 
 ---
 
-### 2. Fanded Landing Page (fanded-landing.vercel.app)
+### 2. Fanded Landing Page (fanded-landing.vercel.app → fanded.com)
 **Repo:** `devfanded/landing` → auto-deploys to Vercel (`fanded-landing` project)
 **Local path:** `/Users/travis/Documents/Fanded M1/fanded-landing-deploy/`
 **Stack:** Static HTML, CSS, vanilla JS. No framework, no build step.
 
-**What it is:**
-Corporate landing page for Fanded Inc. Restructured per redesign brief v2:
-- MAWD leads as FLAGSHIP PRODUCT, Fan Clubs (now "Fanded Clubs") follow
-- Hero with animated word swap: "Every [creative/artist/athlete/actor/director/creator] is fan-funded."
-- Photo-forward traction cards with real talent: Travis Atreo, Manny Jacinto, Anna Akana, Asian American Girl Club
-- AAGC card has gold "Featured in Forbes" badge
-- Investor section with real traction data
-- Dark, refined aesthetic with warm sunset gradient orbs that drift on scroll
-- Fonts: Instrument Serif (display) + Onest (body)
-- Gold accent (#E8C547) used sparingly
+**Design direction (FINAL — editorial, typography-led):**
+- Playfair Display serif headlines + DM Sans body (light weight 300)
+- Cream on black palette (#F5F1EA on #07070F)
+- Square corners (2px radius), thin horizontal rules between sections
+- Left-aligned editorial layout
+- Fanded logo blue accent (#3BADE4)
+- Subtle purple ambient gradient orbs
+- No emojis, no rounded pills, no SaaS patterns
+- Inspired by mockup in `~/Downloads/fanded_mockup.html`
 
-**Key files:**
-- `public/index.html` — the entire landing page
-- `public/photos/` — talent photos (travis.jpg, manny.png, anna.png, aagc.png)
-- `vercel.json` — Vercel config
+**Page structure (Hero → Villain → MAWD → Clubs → Traction → CTA):**
+1. **Hero** — three sentences fade in sequentially: "You didn't start making art to feed an algorithm. / You started because something moved you so deeply you had to respond. / Your fans feel the same way about you."
+2. **Villain** — "You spent years building an audience... The platforms just forgot to tell you the fan belonged to them — not you."
+3. **MAWD** — "You didn't become an artist to answer emails..." + 5 agent cards (text only, no emojis)
+4. **Fanded Clubs** — "Your fans already chose you..." + 3 value props (numbered)
+5. **Traction** — 4 photo-forward cards: Travis Atreo (20%), Manny Jacinto (27% WoW), Anna Akana (<30min), AAGC (40x, Forbes badge)
+6. **Closing** — "You did the hardest part — you made someone care. We'll help you keep them."
+7. **Footer** — fanded wordmark + links
 
-**DNS status:** `fanded.com` and `www.fanded.com` domains added to Vercel project but DNS records need to be updated by Kevin. Required records:
+**Copy philosophy (from v5 brief):**
+- Written by someone with 20 years in the industry
+- Every line should make an artist feel seen before they feel sold to
+- AI is infrastructure, never identity. The artist is the hero.
+- No "leverage," "utilize," "ecosystem," "AI-powered"
+- Nike energy, not startup hype
+
+**OG image:** `public/og.png` — dark card with "Your fans. Your business. Your way."
+**Contact email:** hello@fanded.com
+**Page title:** "Fanded — Your fans. Your business. Your way."
+
+**DNS status:** Records set in Vercel. Kevin needs to update DNS at the domain registrar:
 - A record: `@` → `216.150.1.1`
 - CNAME: `www` → `c1de614c433e7e8e.vercel-dns-016.com.`
 
-Currently accessible at: `fanded-landing.vercel.app`
-
-**Deploy pipeline:** Push to `main` on `devfanded/landing` → Vercel auto-deploys
-**Note:** Commits must use GitHub-associated email (travisatreo@users.noreply.github.com) or Vercel blocks the deploy.
+**Deploy:** Push to `main` on `devfanded/landing` → Vercel auto-deploys
+**Note:** Commits must use GitHub-associated email or Vercel blocks the deploy. Git config set locally: `travisatreo@users.noreply.github.com`
 
 ---
 
-## What's NOT Done Yet
+## Briefs & Design Files
+
+All design briefs are in Travis's Downloads:
+- `~/Downloads/fanded_website_redesign_brief.md` (v1)
+- `~/Downloads/fanded_website_redesign_brief_v2.md`
+- `~/Downloads/fanded_website_redesign_brief_v3.md`
+- `~/Downloads/fanded_website_redesign_brief_v4.md`
+- `~/Downloads/fanded_website_redesign_brief_v5.md` (current)
+- `~/Downloads/fanded_mockup.html` (editorial design reference)
+
+---
+
+## What's NOT Done
 
 ### MAWD Demo
-- [ ] Reusable demo template system exists but hasn't been used for another artist yet
+- [ ] Test reusable template with a second artist (Manny Jacinto suggested)
 - [ ] Bold `**` markers briefly visible during word streaming (cosmetic)
-- [ ] Vercel Analytics not yet enabled
-- [ ] OG meta image not created (text-only OG tags are set)
+- [ ] Vercel Analytics not enabled
+- [ ] OG meta image for mawd.fanded.com not set up
+- [ ] Dashboard donut chart legend — verify colors match on mobile
 
 ### Fanded Landing
-- [ ] DNS not yet pointed to new Vercel project (Kevin handling)
-- [ ] Mobile hamburger menu not implemented (nav links hidden on mobile)
-- [ ] No analytics
+- [ ] DNS pointing to new Vercel project (Kevin handling)
 - [ ] Terms and Privacy links go to `#` (placeholder)
+- [ ] No analytics
+- [ ] Mobile hamburger menu added but not tested on real device
+- [ ] Photos could be higher quality / editorial-treated
 
-### Strategic Next Steps
-- [ ] Build demos for other artists (Thomas Ng, Gabby Then, or anyone in Travis's network)
-- [ ] Wire up real LLM for the landing page's MAWD section (interactive demo embed?)
-- [ ] Fanded app (app.fanded.com) — separate Next.js codebase at `devfanded/fanded`
+### Strategic
+- [ ] Build MAWD demos for other artists (Thomas Ng, Manny Jacinto, etc.)
+- [ ] Use demos as proof points for fundraising
+- [ ] Vercel Analytics on both sites to track investor engagement
+- [ ] Connect MAWD demo to fanded.com (embed or link)
 
 ---
 
-## GitHub Access Notes
-- `travisatreo` is a Member of the `devfanded` GitHub org (recently made Owner)
-- Local git uses `travisatreo@users.noreply.github.com` for devfanded repos
-- The `travisatreo/Mawd-demo` repo is on Travis's personal account (public)
-- The `devfanded/landing` repo is on the org (private)
+## GitHub Access
+
+- `travisatreo` — Owner of `devfanded` org, personal account has `Mawd-demo`
+- Local git for devfanded repos: `travisatreo@users.noreply.github.com`
+- Vercel: `fanded-landing` project connected to `devfanded/landing`
+- Vercel: MAWD project connected to `travisatreo/Mawd-demo`
 
 ---
 
 ## Design System Reference
 
 ### MAWD (mawd.fanded.com)
-- Dark techy aesthetic: #080818 background
+- Dark techy: #080818 background
 - Purple primary: #4A4AE6 / #6B6BFF
 - Gradients: #60C0FF → #7B5CF6
 - Font: Inter (system)
 - Bloomberg terminal energy — data-dense, AI-forward
 
 ### Fanded (fanded.com)
-- Dark refined aesthetic: #0A0A1A background
-- Same purple primary: #4A4AE6
-- Gold accent: #E8C547 (used sparingly — warmth)
-- Warm sunset gradient orbs in background
-- Fonts: Instrument Serif (display), Onest (body)
-- Editorial, talent-facing — dignified, inviting
-- Same brand DNA as MAWD but warmer energy
+- Dark editorial: #07070F background, #F5F1EA cream text
+- Accent: #3BADE4 (Fanded logo blue)
+- Fonts: Playfair Display (display serif), DM Sans (body), Bricolage Grotesque (wordmark)
+- Square corners, thin rules, generous whitespace
+- Editorial, typography-led — dignified, confident, restrained
