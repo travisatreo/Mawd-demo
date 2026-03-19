@@ -277,7 +277,7 @@ function VBarChart(props) {
   var max = 0;
   props.data.forEach(function(d) { var t = d.streaming + d.fanded; if (t > max) max = t; });
   return e("div", null,
-    e("div", { style: { display: "flex", alignItems: "flex-end", gap: props.isMobile ? 2 : 4, height: props.isMobile ? 140 : 180, padding: "0 4px" } },
+    e("div", { style: { display: "flex", alignItems: "flex-end", gap: props.isMobile ? 2 : 4, height: props.isMobile ? 140 : 180, padding: "0 4px", overflow: "hidden" } },
       props.data.map(function(d, i) {
         var total = d.streaming + d.fanded;
         var streamPct = Math.round((d.streaming / max) * 100);
@@ -314,18 +314,18 @@ function DonutChart(props) {
     var sa = (cumulative / total) * 360; cumulative += d.value; var ea = (cumulative / total) * 360;
     if (ea - sa > 0.5) paths.push(e("path", { key: i, d: arc(cx, cy, innerRadius, radius, sa, ea - 1), fill: d.color, opacity: 0.85 }));
   });
-  return e("div", { style: { display: "flex", flexDirection: props.isMobile ? "column" : "row", alignItems: "center", gap: props.isMobile ? 16 : 20 } },
-    e("svg", { width: 180, height: 180, viewBox: "0 0 180 180", style: { flexShrink: 0 } },
+  return e("div", { style: { display: "flex", flexDirection: props.isMobile ? "column" : "row", alignItems: "center", gap: props.isMobile ? 16 : 12, overflow: "hidden", width: "100%" } },
+    e("svg", { width: 160, height: 160, viewBox: "0 0 180 180", style: { flexShrink: 0 } },
       paths,
       e("text", { x: cx, y: cy - 6, textAnchor: "middle", fill: "#fff", fontSize: 16, fontWeight: 700 }, ARTIST.platformTotal || ""),
       e("text", { x: cx, y: cy + 10, textAnchor: "middle", fill: BRAND.textDim, fontSize: 9 }, ARTIST.platformTotalLabel || ""),
       e("text", { x: cx, y: cy + 22, textAnchor: "middle", fill: BRAND.textDark, fontSize: 8 }, "(by platform)")
     ),
-    e("div", { style: { display: "flex", flexDirection: props.isMobile ? "row" : "column", flexWrap: props.isMobile ? "wrap" : "nowrap", gap: props.isMobile ? 8 : 4, justifyContent: props.isMobile ? "center" : "flex-start" } },
+    e("div", { style: { display: "flex", flexDirection: props.isMobile ? "row" : "column", flexWrap: props.isMobile ? "wrap" : "nowrap", gap: props.isMobile ? 8 : 3, justifyContent: props.isMobile ? "center" : "flex-start", minWidth: 0, overflow: "hidden" } },
       props.data.map(function(d, i) {
-        return e("div", { key: i, style: { display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: BRAND.textMuted } },
-          e("div", { style: { width: 8, height: 8, borderRadius: 2, background: d.color, flexShrink: 0 } }),
-          d.name, e("span", { style: { color: BRAND.textDark, marginLeft: 4 } }, d.pct + "%")
+        return e("div", { key: i, style: { display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: BRAND.textMuted, whiteSpace: "nowrap" } },
+          e("div", { style: { width: 7, height: 7, borderRadius: 2, background: d.color, flexShrink: 0 } }),
+          d.name, e("span", { style: { color: BRAND.textDark, marginLeft: 3 } }, d.pct + "%")
         );
       })
     )
